@@ -1,0 +1,12 @@
+---
+title: "Projects"
+---
+
+## Forecasting
+
+- Dengue
+- [Hydropower](ETS.qmd)
+
+## Market Research
+
+- Cluster Analysis
