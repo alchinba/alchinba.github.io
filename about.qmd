@@ -2,7 +2,7 @@
 title: "About"
 ---
 
-About this site
+Pretty chill
 
 ```{r}
 1 + 1
