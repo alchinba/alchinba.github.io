@@ -3,12 +3,13 @@ project:
   output-dir: docs
 
 website:
-  title: "alchinba.github.io"
+  title: "Dimash Alchinbayev"
   navbar:
     left:
       - href: index.qmd
         text: Home
       - about.qmd
+      - projects.qmd
 
 format:
   html:
