@@ -1,0 +1,436 @@
+---
+title: "Forecasting Conventional Hydroelectric Power Generation in the US using NNETAR"
+execute: 
+    freeze: auto
+format: 
+  html: 
+    code-fold: show
+    code-tools: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is a part 2 to the [Hydropower Project](ETS.qmd) I did before.
+
+## Data Preparation
+
+I am importing my data on the total number of Conventional Hydropower Plants in the US and Monthly Precipitation.
+
+```{r}
+library(readxl)
+plants <- read_excel("EHA_Monthly_Net_Generation.xlsx", 
+    sheet = "MonthlyNet")
+```
+
+```{r}
+library(fpp3)
+plants %>% 
+  select(Year, Month, Net_Generation_MWh, EHA_PtID) -> plants
+```
+
+```{r}
+head(plants)
+```
+
+```{r}
+length(unique(plants$EHA_PtID))
+```
+
+```{r}
+plants %>%                              
+  group_by(Year, Month) %>%
+  summarise(Count = n_distinct(EHA_PtID)) %>% 
+  mutate(Date = yearmonth(paste(Year, Month))) %>% 
+  arrange(Date) |>
+  as_tsibble(index = Date) -> plants2
+plants2
+```
+
+```{r}
+plants2 |>
+  autoplot(Count)
+```
+
+```{r}
+library(readr)
+prcpt <- read_csv("Contiguous_us_Precipitation_data.csv", 
+    skip = 4)
+```
+
+```{r}
+prcpt |>
+  mutate(date = seq(as.Date("2000-01-01"),
+                    as.Date("2023-07-01"),
+                    by = "month"),
+         Date = yearmonth(date)) |>
+  as_tsibble(index = Date) |>
+  select(Date, Value) -> prcpt2
+prcpt2
+```
+
+```{r}
+prcpt2 |>
+  autoplot() +
+  labs(title = "Contiguous U.S. Precipitation",
+       subtitle = "Jan 2001 - Apr 2023, Monthly",
+       y = "Inches",
+       x = "Date",
+       caption = "Source: National Centers for Environmental Information") +
+  theme_minimal()
+```
+
+
+```{r}
+plants3 <- read_csv("RectifHyd_v1.0.csv", 
+    skip = 27)
+```
+
+```{r}
+plants3 %>%    
+  select(EIA_ID, plant, year, month) %>% 
+  group_by(year, month) %>%
+  summarise(Count = n_distinct(plant), .groups = "drop") %>% 
+  mutate(Date = yearmonth(paste(year, month))) %>% 
+  arrange(Date) |>
+  as_tsibble(index = Date) -> plants3
+plants3
+```
+
+```{r}
+which(plants3$year==2003)[1]
+```
+
+```{r}
+plants3[1:24,] |>
+  bind_rows(plants2) |>
+  select(Count, Date) -> plants_t
+plants_t
+```
+
+```{r}
+plants_t |>
+  autoplot() +
+  labs(title = "The Total Number of Operational Conventional
+Hydropower Plants",
+       subtitle = "Jan 2001 - Apr 2023, Monthly",
+       y = "Plants",
+       x = "Date",
+       caption = "Source: Existing Hydropower Assets (EHA) Net
+Generation Plant Database, 2003-2022; RectifHyd") +
+  theme_minimal()
+```
+
+```{r}
+hydro <- read_csv("Net_generation_United_States_all_sectors_monthly.csv", 
+    skip = 4)
+```
+
+I am importing the data on Net Energy Generation.
+
+```{r}
+hydro = hydro %>% 
+  rename(MWH = "conventional hydroelectric thousand megawatthours")
+```
+
+```{r}
+hydro=hydro[order(nrow(hydro):1),]
+```
+
+```{r}
+hydro = hydro %>% 
+  mutate(Date = yearmonth(Month)) |>
+  as_tsibble(index = Date)
+```
+
+```{r}
+hydro %>% 
+  autoplot(MWH) +
+  labs(title = "Net Conventional Hydroelectric Power Generation",
+       subtitle = "Jan 2001 - Apr 2023, Monthly",
+       y = "Thousand Megawatthours",
+       x = "Date",
+       caption = "Source: U.S. Energy Information Administration") +
+  theme_minimal()
+```
+
+```{r}
+hydro |>
+  left_join(plants_t) |>
+  select(Date, MWH, Count) |>
+  left_join(prcpt2) |>
+  mutate(Count = ifelse(is.na(Count),
+                        1351,
+                        Count)) |> #inputting missing 4 obs with the last ob
+  rename(Precipitation = Value) -> hydro_comp
+head(hydro_comp)
+```
+
+I am combining all the data into one tsibble.
+
+```{r}
+hydro_comp |>
+  pivot_longer(c(MWH, Count, Precipitation)) |>
+  ggplot(aes(x = Date, y = value)) +
+  geom_line() +
+  facet_grid(name ~ ., scales = "free_y") + ylab("")
+```
+
+```{r}
+hydro |> gg_tsdisplay(MWH,
+                     plot_type='partial', lag_max = 24)
+```
+
+```{r}
+hydro |>
+  model(stl = STL(MWH)) |>
+  components() |> 
+  gg_subseries(season_year) +
+  theme(axis.text.x = element_text(size = 5))
+```
+
+```{r}
+hydro |>
+  model(stl = STL(MWH)) |>
+  components() |>
+  autoplot()
+```
+
+STL decomposition shows high seasonality of the data.
+
+## Preliminary Model Estimation
+
+```{r 80/20 split}
+total_obs.hydro = dim(hydro_comp)[1] #puts n of obs into total_obs
+train_obs = total_obs.hydro * 0.8
+test_obs = total_obs.hydro - train_obs
+hydro_train = head(hydro_comp, train_obs)
+hydro_test = tail(hydro_comp, test_obs)
+```
+
+```{r}
+hydro_train |>
+  pivot_longer(c(MWH, Count, Precipitation)) |>
+  ggplot(aes(x = Date, y = value)) +
+  geom_line() +
+  facet_grid(name ~ ., scales = "free_y") + ylab("")
+```
+
+```{r}
+nn_model = hydro_train |>
+  model(nnetar = NNETAR(MWH ~ Count + Precipitation),
+        Arima.reg = ARIMA(MWH ~ Count + Precipitation))
+```
+
+```{r}
+nn_model
+```
+ A mable: 1 x 2
+             nnetar                              Arima.reg
+            <model>                                <model>
+1 <NNAR(1,1,2)[12]> <LM w/ ARIMA(1,0,0)(1,1,0)[12] errors>
+
+```{r}
+hydro_train[214,"Count"]
+mean_prcpt = mean(hydro_train$Precipitation)
+
+hydro_train2 = hydro_train[-214,]
+```
+
+```{r}
+f_scenarios_hydro <- scenarios(
+  Mean = new_data(hydro_train, 54) |>
+    mutate(Count = 1440,
+           Precipitation = mean_prcpt))
+```
+
+```{r}
+start_time = Sys.time()
+
+nn_fit = nn_model |>
+  forecast(new_data = f_scenarios_hydro)
+
+print(Sys.time() - start_time)
+```
+
+```{r}
+hydro_train |>
+  autoplot(MWH) +
+  autolayer(nn_fit) +
+  labs(title = "Net Conventional Hydroelectric Power Generation
+NN Forecast",
+       subtitle = "Jan 2001 - Apr 2023, Monthly",
+       y = "Thousand Megawatthours",
+       x = "Date",
+       caption = "Source: U.S. Energy Information Administration") +
+  theme_minimal()
+```
+
+```{r}
+hydro_test |>
+  autoplot(MWH) +
+  autolayer(nn_fit) +
+  geom_line(aes(y = MWH)) +
+  labs(title = "Net Conventional Hydroelectric Power Generation
+NN Forecast",
+       subtitle = "Nov 2018 - Apr 2023, Monthly",
+       y = "Thousand Megawatthours",
+       x = "Date",
+       caption = "Source: U.S. Energy Information Administration") +
+  theme_minimal()
+```
+
+```{r}
+nn_fit |>
+  accuracy(hydro_comp) |>
+  select(.model, RMSE, MPE)
+```
+
+Neural Networks predict better.
+
+## Comparing NNETAR, ARIMA, and ETS
+
+For convenience I am using only the last five years of observation.
+
+```{r second split}
+hydro_train2 = hydro_comp[208:256,]
+hydro_test2 = tail(hydro_comp, 12)
+hydro_comp2 = hydro_comp[208:268,]
+```
+
+```{r choosing lag}
+lagged_arima <- hydro_train2 |>
+  # Restrict data so models use same fitting period
+  mutate(MWH = c(NA, NA, NA, NA, NA, MWH[6:49])) |>
+  model(
+    lag1 = ARIMA(MWH ~ pdq(d = 0)
+                 + lag(Precipitation)
+                 + lag(Count)),
+    lag2 = ARIMA(MWH ~ pdq(d = 0) + lag(Precipitation) +
+                 lag(Precipitation, 2) + lag(Count) + lag(Count, 2)),
+    lag3 = ARIMA(MWH ~ pdq(d = 0) + lag(Precipitation) +
+                 lag(Precipitation, 2) + lag(Precipitation, 3) + lag(Count) + lag(Count, 2) + lag(Count, 3)),
+    lag4 = ARIMA(MWH ~ pdq(d = 0) + lag(Precipitation) +
+                 lag(Precipitation, 2) + lag(Precipitation, 3) + lag(Precipitation, 4) + lag(Count) + lag(Count, 2) + lag(Count, 3) + lag(Count, 4)),
+    lag5 = ARIMA(MWH ~ pdq(d = 0) + lag(Precipitation) +
+                 lag(Precipitation, 2) + lag(Precipitation, 3) + lag(Precipitation, 4) + lag(Precipitation, 5) + lag(Count) + lag(Count, 2) + lag(Count, 3) + lag(Count, 4) + lag(Count, 5))
+  )
+
+glance(lagged_arima)
+```
+
+Based on AICc, I am choosing lag1.
+
+```{r}
+nn_model2 = hydro_train2 |>
+  model(nnetar2 = NNETAR(MWH ~ Count + Precipitation),
+        Arima.reg2 = ARIMA(MWH ~ lag(Count) + lag(Precipitation),
+                           stepwise = FALSE,
+                           approx = FALSE),
+        ETS = ETS(MWH))
+```
+
+```{r}
+lagged_count = hydro_train2$Count[38:49]
+lagged_prcpt = hydro_train2$Precipitation[38:49]
+#I am creating a list of the last 12 values from the hydro_train2.
+mean_count = rep(mean(mean(hydro_train2$Count)), times=12)
+mean_prcpt = rep(mean(mean(hydro_train2$Precipitation)), times=12)
+#I am creating a list of the 12 repeating values equaling the average observation from the training set.
+
+future_scenarios <- scenarios(
+  Lagged = new_data(hydro_train2, 12) |>
+    mutate(Count=lagged_count,
+           Precipitation = lagged_prcpt),
+  Mean = new_data(hydro_train2, 12) |>
+    mutate(Count = mean_count,
+           Precipitation = mean_prcpt),
+  names_to = "Forecast Scenarios")
+#By putting lagged_vars, I am using the last 12 values of hydro_train2 as the values in the future_scenarios. This way I am creating new values lagged at 12: April 2023 will equal April 2022, etc. Thus, I can use them as the predictors for my forecast. The same is with the Mean values.
+```
+
+```{r}
+start_time = Sys.time()
+
+nn_fit2 = nn_model2 |>
+  forecast(new_data = future_scenarios)
+
+print(Sys.time() - start_time)
+```
+
+```{r}
+hydro_test2 = hydro_test2[,c("Date","MWH")]
+```
+
+```{r}
+head(hilo(nn_fit2))
+```
+
+Here is the plot of the training data and the forecast.
+
+```{r}
+hydro_train2 |>
+  autoplot(MWH) +
+  autolayer(nn_fit2, level = NULL)
+```
+
+Here is the plot of the actual data and the forecast.
+
+```{r}
+hydro_test2 |>
+  autoplot(MWH) +
+  autolayer(nn_fit2, level = NULL)
+```
+
+```{r}
+nn_fit2 %>% 
+  filter(`Forecast Scenarios`=="Lagged") |>
+  accuracy(hydro_comp2) |>
+  select(.model, RMSE, MPE)
+```
+
+```{r}
+nn_fit2 %>% 
+  filter(`Forecast Scenarios`=="Mean") |>
+  accuracy(hydro_comp2) |>
+  select(.model, RMSE, MPE)
+```
+
+We can see that ETS has the lowest RMSE, while NNETAR with external regressors lagged at 12 has the lowest MPE.
+
+Now I creating an ensemble model that averages the predictions.
+
+```{r}
+start_time = Sys.time()
+
+nn_ensemble = hydro_train2 |>
+  model(Ensemble = (NNETAR(MWH ~ Count + Precipitation) +
+                     ARIMA(MWH ~ lag(Count) + lag(Precipitation),
+                           stepwise = FALSE,
+                           approx = FALSE) +
+                     ETS(MWH))/3)
+
+print(Sys.time() - start_time)
+```
+
+```{r}
+nn_fit2.nsmbl = nn_ensemble |>
+  forecast(new_data = future_scenarios)
+```
+
+```{r}
+hydro_test2 |>
+  autoplot(MWH) +
+  autolayer(nn_fit2.nsmbl, level = NULL)
+```
+
+```{r}
+nn_fit2.nsmbl %>% 
+  filter(`Forecast Scenarios`=="Mean") |>
+  accuracy(hydro_comp2) |>
+  select(.model, RMSE, MPE)
+```
+
+The average prediction, is the best one, in terms of variance (RMSE). However, NNETAR is still better in terms of bias (MPE).
+

@@ -1,0 +1,272 @@
+---
+title: "Boston Renters"
+execute: 
+    freeze: auto
+format: 
+  html: 
+    code-fold: show
+    code-tools: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Abstract
+
+Affordable rental housing or income-restricted rental housing usually means a dwelling unit for a lease that is capped for qualified households. Usually, they are reserved for people earning less than 80%, 50%, or 30% of Area Median Income (AMI). Boston already has one of the highest shares of income restricted housing per total units in the country. According to City of Boston, around 27% of all rental units are income restricted and 95% of all income restricted units are rental. Nevertheless, CHMA reports that for the next three years, the demand is estimated to be 34,675 new rental units, with only 16,450 units underway, facilitating shortage and further rent increase. Not to mention the record costs of building in Boston and limited space.
+
+Below are the illustrations of the sample dimensions, calculated using American Community Survey public use samples (2021).
+
+The tables illustrate the proportion of cost-burdened and severely cost-burdened households by race, size, and income groups in Boston. We can see that the distribution of different races, for example, is different from general population. According to the Boston Neighborhoods Demographics, in Boston overall, there are 44% of White and 22.7% of Black population, in contrast of around 36% and 18% in the target population, respectively. Not proportionate sample might introduce bias by overrepresenting and underrepresenting different groups. We can also observe that 9.6% do qualify for 80% AMI housing, even though they are cost burdened.
+
+
+## Data Preparation
+
+```{r importing data}
+library(readr)
+library(tidyverse)
+rents <- read_csv("usa_00003.csv")
+```
+
+```{r}
+rents = rents %>% 
+  dplyr::mutate(rentyearly = RENTGRS*12) %>% 
+  dplyr::mutate(rentratio = rentyearly/HHINCOME)
+```
+
+```{r}
+count(rents, rentratio==0)
+```
+
+```{r}
+which(is.na(rents$rentratio))
+```
+
+```{r}
+rents[1266,"rentratio"]
+```
+
+```{r}
+sum(is.na(rents))
+```
+
+```{r}
+rents = na.omit(rents)
+```
+
+```{r}
+rents2 = rents %>% 
+  filter(rentratio!=0)
+```
+
+```{r}
+plot(density(rents2$HHINCOME))
+```
+
+```{r}
+plot(density(rents2$rentratio))
+```
+
+```{r}
+count(rents2, rentratio>=0.3)
+```
+
+```{r}
+count(rents2, rentratio>=0.5)
+```
+
+```{r}
+rents2 = rents2 %>% 
+  dplyr::mutate(costbur = ifelse(rentratio<0.3,"Not CB",
+                        ifelse(0.3<=rentratio&rentratio<0.5,"CB", "Severely CB")))
+```
+
+```{r}
+rents2 = rents2 %>% 
+  filter(HHINCOME!=0)
+```
+
+```{r}
+unique(rents2$RACE)
+```
+
+```{r}
+race_df = data.frame(RACE = c(1,2,3,4,5,6,7,8,9),
+                        LRACE = c("White", 
+               "Black",
+               "Native",
+               "Chinese",
+               "Japanese",
+               "Other Asian",
+               "Other",
+               "Two Races",
+               "Three Races"))
+
+rents3 = merge(rents2, race_df, by = "RACE", all = FALSE)
+```
+
+```{r}
+rents3 = rents3 %>% 
+  mutate(LRACE = ifelse(RACE==7,"Hispanic",LRACE)) %>% 
+  mutate(LRACE = ifelse(LRACE=="Chinese"|LRACE=="Japanese"|LRACE=="Other Asian","Asian",LRACE)) %>%
+  rename(Race=LRACE) %>% 
+  group_by(SERIAL) %>% 
+  mutate(hhsize = max(PERNUM))%>% 
+  mutate(ami = ifelse(hhsize==1&HHINCOME<=78550,1,
+               ifelse(hhsize==2&HHINCOME<=89750,1,
+               ifelse(hhsize==3&HHINCOME<=100950,1,
+               ifelse(hhsize==4&HHINCOME<=112150,1,
+               ifelse(hhsize>=5&HHINCOME<=130100,1,
+                      0)))))) %>% 
+  ungroup()
+```
+
+```{r}
+rents3 %>% 
+  filter(costbur!="Not CB") %>% 
+  filter(ami!=0) %>% 
+  count()
+```
+
+## Tables
+
+```{r}
+rents3 %>% 
+  filter(ami!=0) %>% 
+  filter(costbur!="Not CB") %>%
+  mutate_at(vars("Race"), as.factor) %>% 
+  group_by(Race, costbur) %>% 
+  summarize(Count = n()) %>%
+  group_by(costbur) %>% 
+  mutate(Percent = Count/1400*100) %>% 
+  ungroup() %>%
+  mutate(costbur = factor(costbur, levels = c("Not CB",
+                                              "Severely CB",
+                                              "CB"))) %>%
+  ggplot(aes(x=reorder(Race, desc(Percent)), 
+             y=Percent, 
+             fill=costbur)) + 
+  scale_fill_manual(values = c("steelblue",
+                               "blue"),
+                    name = element_blank()) +
+  geom_bar(stat='identity', position= "stack") +
+  geom_text(aes(label = round(Percent, 2)),
+            size = 2,
+            position = position_stack(vjust = 0.5),
+            color = "white") +
+  theme_minimal() +
+  xlab(element_blank()) +
+  labs(title = "Cost Burdened Renter Households by Race in Boston",
+       subtitle = "Excluding those who do not qualify by 80% AMI",
+       caption = "Source: IPUMS USA (2021 ACS), Own Calculations
+       Note: Shares of cost burdened households were derived by deviding annual rent by income") +
+  theme(legend.position = c(0.85,0.9),
+        title = element_text(size = 10))
+```
+
+```{r}
+rents3 %>% 
+  group_by(SERIAL) %>% 
+  distinct(SERIAL, hhsize, costbur, ami) %>% 
+  filter(costbur!="Not CB" & ami!=0)
+```
+
+```{r}
+rents3 %>% 
+  group_by(SERIAL) %>% 
+  dplyr::select(SERIAL,PERNUM,hhsize,HHINCOME,rentratio,costbur,Race,ami) %>% 
+  distinct(SERIAL, hhsize, HHINCOME, rentratio, costbur, ami) %>% 
+  mutate(hhsize = ifelse(hhsize>=5, 6, hhsize)) %>%
+  dplyr::mutate_at(vars(hhsize), ~ as.character(.)) %>%
+  mutate(hhsize = ifelse(hhsize=="6", "5+", hhsize)) %>% 
+  filter(ami!=0) %>% 
+  filter(costbur!="Not CB") %>% 
+  group_by(hhsize, costbur) %>% 
+  summarize(Count = n()) %>%
+  group_by(costbur) %>% 
+  mutate(Percent = Count/713*100) %>% 
+  ungroup() %>%
+  mutate(costbur = factor(costbur, levels = c("Not CB",
+                                              "Severely CB",
+                                              "CB"))) %>%
+  ggplot(aes(x=reorder(hhsize, desc(Percent)), 
+             y=Percent, 
+             fill=costbur)) + 
+  scale_fill_manual(values = c("steelblue",
+                               "blue"),
+                    name = element_blank()) +
+  geom_bar(stat='identity', position= "stack") +
+  geom_text(aes(label = round(Percent, 2)),
+            size = 2,
+            position = position_stack(vjust = 0.5),
+            color = "white") +
+  theme_minimal() +
+  xlab("Number of Household Members") +
+  labs(title = "Cost Burdened Renter Households by Size in Boston",
+       subtitle = "Excluding those who do not qualify by 80% AMI",
+       caption = "Source: IPUMS USA (2021 ACS), Own Calculations") +
+  theme(legend.position = c(0.85,0.9),
+        title = element_text(size = 10))
+  
+```
+
+```{r}
+sum(!is.na(unique(rents3$SERIAL)))
+```
+
+```{r}
+rents4 = rents3 %>% 
+  mutate(ami30 = ifelse(hhsize==1&HHINCOME<=29450,1,
+               ifelse(hhsize==2&HHINCOME<=33650,1,
+               ifelse(hhsize==3&HHINCOME<=37850,1,
+               ifelse(hhsize==4&HHINCOME<=42050,1,
+               ifelse(hhsize>=5&HHINCOME<=48800,1,
+                      0)))))) %>%
+  mutate(ami50 = ifelse(hhsize==1&HHINCOME<=49100,1,
+               ifelse(hhsize==2&HHINCOME<=56100,1,
+               ifelse(hhsize==3&HHINCOME<=63100,1,
+               ifelse(hhsize==4&HHINCOME<=70100,1,
+               ifelse(hhsize>=5&HHINCOME<=81350,1,
+                      0)))))) %>% 
+  mutate(ami.cat = ifelse(ami30==1,"30%<",
+                   ifelse(ami50==1,"50%<",
+                   ifelse(ami==1,"80%<",
+                          "80%>"))))
+```
+
+```{r}
+rents4 %>% 
+  group_by(SERIAL) %>% 
+  distinct(SERIAL,ami.cat,costbur) %>% 
+  filter(costbur!="Not CB") %>% 
+  group_by(ami.cat, costbur) %>% 
+  summarize(Count = n()) %>%
+  group_by(costbur) %>% 
+  mutate(Percent = Count/796*100) %>% 
+  ungroup() %>%
+  mutate(costbur = factor(costbur, levels = c("Not CB",
+                                              "Severely CB",
+                                              "CB"))) %>%
+  ggplot(aes(x=reorder(ami.cat, desc(Percent)), 
+             y=Percent, 
+             fill=costbur)) + 
+  scale_fill_manual(values = c("steelblue",
+                               "blue"),
+                    name = element_blank()) +
+  geom_bar(stat='identity', position= "stack") +
+  geom_text(aes(label = round(Percent, 2)),
+            size = 2,
+            position = position_stack(vjust = 0.5),
+            color = "white") +
+  theme_minimal() +
+  xlab("Most Common AMI thresholds") +
+  labs(title = "Cost Burdened Renter Households by AMI % category
+in Boston",
+       subtitle = "Household Income as % of AMI",
+       caption = "Source: IPUMS USA (2021 ACS), Own Calculations
+Note: Percentages of the households are on the right side") +
+  theme(legend.position = c(0.85,0.9),
+        title = element_text(size = 10))
+```
+

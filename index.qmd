@@ -1,6 +1,6 @@
 ---
 title: "Dinmukhamed (Dimash) Alchinbayev"
-image: PHOTKAcopy.jpg
+image: linkedin_photo_screen.png
 resources: Dimash Resume.pdf
 about: 
   template: solana
@@ -10,6 +10,9 @@ about:
     - text: Resume
       icon: file-text
       href: Dimash Resume.pdf
+    - text: Projects
+      icon: graph-up-arrow
+      href: projects.qmd
 ---
 
 This is a Quarto website.

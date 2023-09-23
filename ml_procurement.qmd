@@ -1,0 +1,1608 @@
+---
+title: "Procurement Contracts"
+execute: 
+    freeze: auto
+format: 
+  html: 
+    code-fold: show
+    code-tools: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+I use ML techniques to predict and classify the value of the Procurement Contracts.
+
+## Data
+
+```{r Preliminary Data, echo = TRUE}
+Procurement <- read.csv("Procurement.csv", header=TRUE, sep=";")
+View(Procurement)
+```
+
+
+## Libraries
+
+```{r opening necessary packages}
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(Ecdat)
+library(glmnet)
+library(Matrix)
+```
+
+
+## Stats
+
+```{r Stats}
+summary(Procurement$cri_wb) #NA's 86,535
+print(86535/248000) #percent of total obs. Will impute later
+print(248000-86535) #n of total obs
+```
+
+
+
+## Cleaning
+
+```{r ommitting NAs and creating Procurement2}
+Procurement2 = Procurement %>% 
+  filter(!is.na(cri_wb))
+summary(Procurement2)
+```
+
+## Analysis of Variables
+
+Seeing unique values of categorical vars and descriptive stats of numerical ones.
+
+```{r cft_methodtype}
+unique(Procurement2$cft_methodtype)
+```
+
+```{r cft_sector}
+unique(Procurement2$cft_sector)
+table(Procurement2$cft_sector)
+```
+Sector can be divided into dummies later 
+
+```{r ca_type}
+unique(Procurement2$ca_type)
+```
+
+```{r ca_nrbidsrec}
+#N of bids recieved
+unique(Procurement2$ca_nrbidsrec)
+summary(Procurement2$ca_nrbidsrec)
+```
+
+```{r ca_nrbidscons}
+#N of bids considered
+#Was a character class, so transformed into a numerical one
+#Empty spaces treated as if 0
+unique(Procurement2$ca_nrbidscons)
+summary(Procurement2$ca_nrbidscons)
+
+Procurement2 = Procurement2 %>% 
+  mutate(bidscons = as.numeric(ca_nrbidscons)) %>% 
+  mutate(bidscons = ifelse(is.na(bidscons), 0, bidscons))
+```
+
+```{r corr_signp1}
+#signature period from 14 to 93 days
+Procurement2 = Procurement2 %>% 
+  mutate(corr_signp1 = as.numeric(corr_signp1))
+
+summary(Procurement2$corr_signp1)
+```
+
+
+```{r ca_contract_value}
+#Value of the contract
+Procurement2 = Procurement2 %>% 
+  mutate(cntrct_val = as.numeric(ca_contract_value))
+
+summary(Procurement2$ca_contract_value)
+summary(Procurement2$cntrct_val)
+```
+
+
+
+```{r lca_contract_value}
+#Value of the contract logged
+summary(Procurement2$lca_contract_value)
+```
+
+
+```{r ca_contract_valuec}
+#Contract Value Categories
+unique(Procurement2$ca_contract_valuec)
+summary(Procurement2$ca_contract_valuec)
+table(Procurement2$ca_contract_valuec)
+```
+
+```{r ca_procedure}
+#Main procurement type category
+unique(Procurement2$ca_procedure)
+table(Procurement2$ca_procedure)
+```
+
+```{r ca_signper}
+#Signature Period (probably in days)
+#Was character class
+Procurement2 = Procurement2 %>% 
+  mutate(signper = as.numeric(ca_signper))
+
+summary(Procurement2$signper)
+```
+
+
+```{r SuppAwd}
+#Unclear
+unique(Procurement2$SuppAwd)
+summary(Procurement2$SuppAwd)
+table(Procurement2$SuppAwd)
+```
+
+```{r sec_score}
+#Supplier country secrecy score
+summary(Procurement2$sec_score)
+```
+
+```{r procedure_type}
+unique(Procurement2$procedure_type)
+table(Procurement2$procedure_type)
+```
+
+```{r taxhav}
+#Whether tax haven or not
+unique(Procurement2$taxhav)
+table(Procurement2$taxhav)
+```
+
+```{r taxhav_fixed (Time invariant)}
+unique(Procurement2$taxhav_fixed)
+```
+
+
+```{r taxhav3bi}
+unique(Procurement2$taxhav3bi)
+```
+
+```{r}
+#Corruption Risk Index, according to GTI
+summary(Procurement2$cri_wb)
+unique(Procurement2$cri_wb)
+table(Procurement2$cri_wb)
+```
+
+```{r Create cri_wb character}
+#creating cri_wb character var for plotting
+Procurement2 = Procurement2 %>% 
+  mutate(cri_wb.ch = as.character(cri_wb))
+```
+
+## Plot
+
+```{r}
+# plot cri_wb
+plot(density(Procurement2$cri_wb))
+plot(hist(Procurement2$cri_wb))
+```
+
+```{r}
+# Plot distribution
+Procurement2 %>% 
+  ggplot(aes(x=cri_wb, colour=region)) + 
+  geom_density()
+```
+
+
+```{r}
+#Plot by cri_wb and region
+Procurement2 %>%  
+  group_by(cri_wb.ch, region) %>%  
+  summarize(Count = n()) %>% 
+  ggplot(aes(x=region, y=Count, fill=cri_wb.ch)) + 
+  geom_bar(stat='identity', position= "dodge")
+```
+
+
+```{r}
+#Plot of lca_contract_value
+plot(density(na.omit(Procurement2$lca_contract_value)))
+```
+
+```{r}
+#Plot lca_contract_value by region
+Procurement2 %>% 
+  ggplot(aes(x=lca_contract_value, color=region)) + 
+  geom_density()
+```
+
+We can observe some differences, for example between regions like Sub-Saharan Africa and Latin America.
+
+```{r}
+#Plot lca_contract_value by sector
+Procurement2 %>% 
+  ggplot(aes(x=lca_contract_value, color=cft_sector)) + 
+  geom_density()
+```
+
+Again some differences are seen between for example Energy&Mining and Law, which makes sense, since Mining requires more costly equipment. The sector without a name seems to be an outlier almost.
+
+```{r}
+#Plot average lca_contract_value over time
+Procurement2 %>% 
+  group_by(year, lca_contract_value) %>% 
+  ggplot(aes(y=lca_contract_value, x=year)) +
+  stat_summary(fun = "mean", geom = "line")
+```
+
+Generally increasing trend of average value per contract.
+
+## Regression
+
+I run a simple regression with variables of interest to see if anything interesting happens
+
+```{r}
+#Simple Regression for the logged Value
+lr1 = lm(lca_contract_value ~ region + ca_type + ca_bids_all + ca_procedure + singleb + corr_signp2 + corr_signp3 + corr_signp4 + nrc + taxhav_fixed + cri_wb, data = Procurement2)
+summary(lr1)
+```
+
+Adjusted R-squared is about 0.17, whereas cri_wb is dropped because of singularity. 
+
+```{r}
+deviance(lr1)
+```
+
+RSS is quite big.
+
+The variable for cri_wb was omitted due to singularities. Perhaps creating a dummy might change it.
+
+```{r}
+#Creating cri_wb dummy
+#0.00 0.25 0.75 0.50 1.00
+Procurement2 = Procurement2 %>% 
+  mutate(cri_wb.d0 = ifelse(cri_wb==0, 1, 0)) %>% 
+  mutate(cri_wb.d25 = ifelse(cri_wb==0.25, 1, 0)) %>%
+  mutate(cri_wb.d50 = ifelse(cri_wb==0.5, 1, 0)) %>%
+  mutate(cri_wb.d75 = ifelse(cri_wb==0.75, 1, 0))
+```
+
+I am creating several dummies for categorical vars.
+
+```{r}
+#Creating cft_sector dummmies, omitting ""
+Procurement2 = Procurement2 %>% 
+  mutate(P = ifelse(cft_sector=="Public admin, Law", 1, 0)) %>% 
+  mutate(Health = ifelse(cft_sector=="Health & social serv", 1, 0)) %>%
+  mutate(Edu = ifelse(cft_sector=="Education", 1, 0)) %>%
+  mutate(W = ifelse(cft_sector=="Water/sanit/fld prot", 1, 0)) %>%
+  mutate(I = ifelse(cft_sector=="Industry and trade", 1, 0)) %>%
+  mutate(Tran = ifelse(cft_sector=="Transportation", 1, 0)) %>% 
+  mutate(Fin = ifelse(cft_sector=="Finance", 1, 0)) %>% 
+  mutate(A = ifelse(cft_sector=="Agriculture", 1, 0)) %>%
+  mutate(Ener = ifelse(cft_sector=="Energy & mining", 1, 0)) %>%
+  mutate(Info = ifelse(cft_sector=="Info & communication", 1, 0)) %>%
+  mutate(H = ifelse(cft_sector=="(H)", 1, 0)) %>%
+  mutate(Multi = ifelse(cft_sector=="(H)Multisector", 1, 0)) %>% 
+  mutate(Priv = ifelse(cft_sector=="(H)Priv Sector Dev", 1, 0))
+unique(Procurement2$cft_sector)
+```
+
+```{r}
+Procurement2 = Procurement2 %>% 
+  mutate(AFR = ifelse(region=="AFR", 1, 0)) %>% 
+  mutate(EAP = ifelse(region=="EAP", 1, 0)) %>%
+  mutate(ECA = ifelse(region=="ECA", 1, 0)) %>%
+  mutate(LCR = ifelse(region=="LCR", 1, 0)) %>%
+  mutate(MNA = ifelse(region=="MNA", 1, 0)) %>%
+  mutate(SAR = ifelse(region=="SAR", 1, 0))
+```
+
+
+```{r}
+#Creating ca_type dummies, omitting Civil Works
+Procurement2 = Procurement2 %>% 
+  mutate(ca_Consul.Service = ifelse(ca_type=="Consultant Services", 1, 0)) %>% 
+  mutate(ca_Goods = ifelse(ca_type=="Goods", 1, 0))
+```
+
+```{r}
+#Creating taxhav_fixed dummies, omitting domestric supplier
+Procurement2 = Procurement2 %>% 
+  mutate(not.taxhaven = ifelse(taxhav_fixed=="NO tax haven", 1, 0)) %>% 
+  mutate(taxhaven = ifelse(taxhav_fixed=="tax haven", 1, 0))
+```
+
+```{r}
+#Creating ca_procedure dummies, omitting cost
+Procurement2 = Procurement2 %>% 
+  mutate(ca_proc_open = ifelse(ca_procedure=="open", 1, 0)) %>% 
+  mutate(ca_proc_quality = ifelse(ca_procedure=="consultancy,quality", 1, 0)) %>%
+  mutate(ca_proc_source = ifelse(ca_procedure=="single source", 1, 0)) %>%
+  mutate(ca_proc_restricted = ifelse(ca_procedure=="restricted", 1, 0))
+```
+
+For regression of the value per contract I am selecting the following variables:
+  1. Dummy variables for region, because there was a slight difference between the distributions of value by regions.
+  4. Procurement Sector, thinking some sectors tend to attract more valuable tender contracts.
+  2. Dummy for ca_type (Procurement Category) since the type of services can affect the value
+  3. Dummy for for n of bidders since higher n of bidders should indicate a higher price of the contract.
+  4. Dummy for contract award procedure associated with corruption.
+  5. Dummy for single bidder might indicate corrupted case, which can imply high value of the contract.
+  6. Period between when the contract was awarded and signed.
+  7. Number of contracts per country.
+  8. Whether the supplier is a domestic one or a tax haven. Foreign tax havens might indicate corruption and thus higher price.
+  9. The Corruption Index might be associated with the higher value of the contract.
+
+```{r}
+#Creating only predictor and response dataset Procurement3
+Procurement3 = Procurement2 %>% 
+  select("ca_contract_valuec", "lca_contract_value", "AFR", "EAP", "ECA", "LCR", "MNA", "SAR", "ca_Consul.Service", "ca_Goods", "ca_bids_all", "ca_proc_open", "ca_proc_quality", "ca_proc_source", "ca_proc_restricted", "singleb", "corr_signp1", "corr_signp2", "corr_signp3", "nrc", "taxhaven", "not.taxhaven", "cri_wb.d0", "cri_wb.d25", "cri_wb.d50", "cri_wb.d75", "P", "Health", "Edu", "W", "I", "Tran", "Fin", "A", "Ener", "Info", "H", "Multi", "Priv")
+```
+
+
+```{r}
+#Saving Procurement3 as an excel dataset
+library(writexl)
+write_xlsx(Procurement3, "~/Desktop/BC_courses/BigDataEconometrics/Procurement3.xlsx")
+```
+
+
+
+```{r}
+#Omitting any missing values
+Procurement3 = na.omit(Procurement3)
+```
+
+
+```{r}
+#Linear Regression with Procurement3
+lr2 = lm(lca_contract_value ~ ., data = Procurement3)
+summary(lr2)
+```
+
+Two variables were dropped because of singularity still. Most of the remaining vars have high statistical significance.
+
+
+
+## Ridge Regression with Grid Search
+
+```{r}
+#Last check of the predictor dataset
+summary(Procurement3)
+```
+
+
+```{r}
+#assigning index to each row
+index = 1:nrow(Procurement3)
+```
+
+```{r}
+#randomly taking 90% of the indices for training subset
+set.seed(12345) #for random
+train_index = sample(index, round(0.90*nrow(Procurement3)), replace = FALSE) #takes sample of 90% of rows without replacement
+```
+
+```{r}
+#taking the remaining indices for test subset
+test_index = setdiff(index, train_index) #takes untaken rows
+```
+
+```{r}
+#creating train and test subsets of obs
+train_x = Procurement3[train_index, ] %>% 
+  select(-lca_contract_value, -ca_contract_valuec, -starts_with("cri_wb.d")) #Procurement3[train_index, ] expression to use only training subset %>% everything except price, price category, and corruption index
+
+train_y = Procurement3[train_index, ] %>% 
+  pull(lca_contract_value)
+
+test_x = Procurement3[test_index, ] %>% 
+  select(-lca_contract_value, -ca_contract_valuec, -starts_with("cri_wb.d"))
+
+test_y = Procurement3[test_index, ] %>% 
+  pull(lca_contract_value)
+```
+
+```{r}
+#putting subsets into matrices for the models
+#creates a model) matrix, e.g., by expanding factors to a set of dummy variables (depending on the contrasts) and expanding interactions similarly.
+train_matrix = model.matrix(train_y ~ ., data = train_x)
+
+test_matrix = model.matrix(test_y ~ ., data = test_x)
+```
+
+
+```{r}
+#Linear Regression
+#To run an unpenalized linear regression penalty, lambda is set to 0
+model_lm_ridge = glmnet(y = train_y, x = train_matrix, alpha = 0, lambda = 0)
+```
+
+```{r}
+#Coefficients
+coef(model_lm_ridge)
+```
+
+Coefficients of this regression did not drop the two from the lr2, which might be because the estimates in glmnet and lm will never be exactly the same and one is the subset of the other.
+
+```{r}
+#RMSE for lm
+#compute the RMSE
+preds_lm = predict(model_lm_ridge, test_matrix)
+
+rmse_lm = sqrt(mean(preds_lm - test_y)^2)
+```
+
+```{r}
+#Ridge regression with lambda 10
+model_ridge = glmnet(y = train_y, x = train_matrix, alpha = 0, lambda = 10)
+```
+
+```{r}
+#compute the RMSE for Ridge
+preds = predict(model_ridge, test_matrix)
+
+rmse = sqrt(mean(preds - test_y)^2)
+```
+
+RMSE of the first Ridge regression is bigger than that of the unregularized linear regression. Seems that the optimal lambda should be small.
+
+```{r}
+#finding optimal lambda
+#Function for picking the lowest RMSE
+#cv.glmnet: Does k-fold cross-validation for glmnet, produces a plot, and returns a value for lambda
+best_model = cv.glmnet(train_matrix, train_y, alpha=0)
+# lambda that minimizes the MSE
+best_model$lambda.min
+```
+
+The optimal lambda is very close to 0.
+
+```{r}
+#Ridge regression with optimal lambda
+#use the new lambda
+new_lambda = best_model$lambda.min
+new_model_ridge = glmnet(y = train_y, x = train_matrix, alpha = 0, lambda = new_lambda)
+```
+
+
+```{r}
+#new RMSE
+#check the RMSE
+new_preds = predict(new_model_ridge, test_matrix)
+
+new_rmse = sqrt(mean(new_preds - test_y)^2)
+```
+
+```{r}
+#Comparing RMSE
+print(rmse)
+print(rmse_lm)
+print(new_rmse)
+```
+
+
+
+The RMSE for Ridge regression with the optimal parameter is smaller than that with lambda 0 just a little bit. Which means regularized regression is just a little more efficient than the simple linear regression.
+
+```{r}
+#Comparing RSS
+sse_lm = sum((preds_lm - test_y)^2)
+sse_ridge = sum((new_preds - test_y)^2)
+
+print(sse_lm)
+print(sse_ridge)
+```
+
+```{r}
+lr3 = lm(train_y ~ ., data = train_x)
+summary(lr3)
+```
+
+```{r}
+preds_lr3 = predict(lr3, test_x)
+
+rmse_lr3 = sqrt(mean(preds_lr3 - test_y)^2)
+sum((preds_lr3 - test_y)^2)
+```
+
+
+Residual Sums Squared are almost identical for both regressions. Given that, I'd suggest sticking to a simpler model, i.e. unpenalized Linear Regression Model.
+
+
+## Corrected Ridge without cri_wb
+
+Later in the research I discovered that cri_wb caused multicollinearity, so I removed it and performed Ridge regression again
+
+```{r subsetting the data}
+#subsetting the data
+
+index.r = 1:nrow(Procurement3) #indexing each row
+
+set.seed(12345) #for random
+train_index.r = sample(index.r, round(0.90*nrow(Procurement3)), replace = FALSE) #takes sample of 90% of rows without replacement
+
+test_index.r = setdiff(index.r, train_index.r) #takes untaken rows
+
+train_x.r = Procurement3[train_index.r, ] %>% 
+  select(-lca_contract_value, -ca_contract_valuec, -starts_with("cri_wb.d")) #Procurement3[train_index, ] expression to use only training subset %>% everything except price, price category, and corruption index
+
+train_y.r = Procurement3[train_index.r, ] %>% 
+  pull(lca_contract_value)
+
+test_x.r = Procurement3[test_index.r, ] %>% 
+  select(-lca_contract_value, -ca_contract_valuec, -starts_with("cri_wb.d"))
+
+test_y.r = Procurement3[test_index.r, ] %>% 
+  pull(lca_contract_value)
+
+#creates a model) matrix, e.g., by expanding factors to a set of dummy variables (depending on the contrasts) and expanding interactions similarly. The matrices are for glmnet.
+train_matrix.r = model.matrix(train_y.r ~ ., data = train_x.r)
+
+test_matrix.r = model.matrix(test_y.r ~ ., data = test_x.r)
+```
+
+
+```{r CORRECTED Linear Regression with glmnet}
+#CORRECTED Linear Regression with glmnet
+#To run an unpenalized linear regression penalty, lambda is set to 0
+lm_ridge.c = glmnet(y = train_y.r, x = train_matrix.r, alpha = 0, lambda = 0)
+```
+
+```{r RMSE and SSE for corrected lm glmnet}
+#RMSE and SSE for corrected lm glmnet
+preds_r = predict(lm_ridge.c, test_matrix.r)
+
+rmse_r = sqrt(mean(preds_r - test_y.r)^2)
+sse_r = sum((preds_r - test_y.r)^2)
+
+print(rmse_r)
+print(sse_r)
+```
+
+```{r finding optimal lambda}
+#finding optimal lambda
+
+#Function for picking the lowest RMSE
+#cv.glmnet: Does k-fold cross-validation for glmnet, produces a plot, and returns a value for lambda
+best_model.r = cv.glmnet(train_matrix.r, train_y.r, alpha=0)
+# lambda that minimizes the MSE
+best_model.r$lambda.min
+```
+
+The optimal lambda is very close to 0.
+
+```{r}
+#Ridge regression with optimal lambda
+#use the new lambda
+new_lambda.r = best_model.r$lambda.min
+lm_ridge.c2 = glmnet(y = train_y.r, x = train_matrix.r, alpha = 0, lambda = new_lambda.r)
+```
+
+
+```{r}
+#new RMSE
+#check the RMSE
+new_preds.r = predict(lm_ridge.c2, test_matrix.r)
+
+new_rmse.r = sqrt(mean(new_preds.r - test_y.r)^2)
+new_sse.r = sum((new_preds.r - test_y.r)^2)
+
+print(new_rmse.r)
+print(new_sse.r)
+```
+
+
+## Logit for contract value categories
+
+```{r Creating contract_valuec dummy and Procurement4}
+#Creating contract_valuec dummy and Procurement4
+Procurement4 = Procurement3 %>% 
+  mutate(value.cat = ifelse(ca_contract_valuec=="200.000-", 1, 0)) %>% 
+  select(-c(ca_contract_valuec, lca_contract_value)) #I drop cols for value logged and category
+```
+
+
+
+```{r simple logit model}
+#simple logit model
+log_model = glm(value.cat ~ ., family = binomial(link = "logit"), Procurement4)
+summary(log_model)
+```
+
+```{r creating train and test dataset}
+#creating train and test dataset
+
+index.log = 1:nrow(Procurement4)
+
+set.seed(12345) #for random
+train_index.log = sample(index.log, round(0.90*nrow(Procurement4)), replace = FALSE) #takes sample of 90% of rows without replacement
+
+test_index.log = setdiff(index.log, train_index.log) #takes remaining rows for test
+
+#creating train and test subsets of obs
+train_x.log = Procurement4[train_index.log, ] %>% 
+  select(-value.cat) #Procurement3[train_index.log, ] expression to use only training subset %>% everything except price category
+
+train_y.log = Procurement4[train_index.log, ] %>% 
+  pull(value.cat) #pulls only value.cat
+
+test_x.log = Procurement4[test_index.log, ] %>% 
+  select(-value.cat)
+
+test_y.log = Procurement4[test_index.log, ] %>% 
+  pull(value.cat)
+```
+
+```{r logit model training}
+#logit model training
+
+log_model_train = glm(train_y.log ~ ., family = binomial(link = "logit"), train_x.log)
+summary(log_model_train)
+```
+
+
+```{r predict probabilities for test subset (Warning)}
+#predict probabilities for test subset (Warning)
+probabilities1 <- log_model_train %>% predict(newdata=test_x.log, type = "response")
+head(probabilities1) #the warning might be bc there is collinearity or too many predictors. 
+```
+
+```{r create predicted.classes1}
+#create predicted.classes1
+predicted.classes1 <- ifelse(probabilities1 > 0.5, 1, 0)
+head(predicted.classes1)
+```
+
+```{r Comparison between actual and predicted values}
+#Comparison between actual and predicted values
+mean(predicted.classes1 == test_y.log)
+```
+
+```{r Check for aliased coeffs in the model}
+#Check for aliased coeffs in the model
+
+alias(log_model_train)
+#aliased coeffs indicate collinearity problem in the model (some variables are linearly dependent on others) and should be removed or transformed.
+```
+
+```{r}
+alias(log_model_train)$reduced
+```
+
+```{r Remove cri_wb.d and other superfluous vars}
+#Remove cri_wb.d and other superfluous vars
+#Most probably cri_wb was calculated based on the other vars in the dataset, so it is linearly dependent on them and should be removed
+train_x.log2 = train_x.log %>% 
+  select( -starts_with("cri_wb.d"), -c(AFR, EAP, ECA, LCR, MNA, SAR, ca_bids_all)) #starts_with() removes all cri_wb dummies 
+
+test_x.log2 = test_x.log %>% 
+  select( -starts_with("cri_wb.d"), -c(AFR, EAP, ECA, LCR, MNA, SAR, ca_bids_all))
+```
+
+```{r 2 logit model training}
+#2 logit model training
+log_model_train.2 = glm(train_y.log ~ ., family = binomial(link = "logit"), train_x.log2)
+summary(log_model_train.2)
+```
+
+```{r}
+alias(log_model_train.2)$complete
+#no aliased coeffs
+```
+
+```{r Predict probabilities2}
+#Predict probabilities2
+probabilities2 <- log_model_train.2 %>% predict(newdata=test_x.log2, type = "response")
+head(probabilities2)
+#No warning this time
+```
+
+```{r Predcited classes based on probabilities}
+#Predcited classes based on probabilities
+predicted.classes2 <- ifelse(probabilities2 > 0.5, 1, 0)
+head(predicted.classes2)
+```
+
+```{r Compare observed and predicted values}
+#Compare observed and predicted values
+pred.rate.log = mean(predicted.classes2 == test_y.log)
+
+mean(predicted.classes2 == test_y.log)
+```
+
+## KNN 
+
+```{r KNN classification}
+#KNN classification
+
+library(class)
+
+predicted_labels = knn(train_x.log, test_x.log, train_y.log, k = 3)
+#Here I used the subsets with cri_wb and other coefficients because the model doesn't care about collinearity and because without them there were too many ties.
+```
+
+```{r Comparison between obs and predictions through KNN}
+#Comparison between obs and predictions through KNN
+pred.rate.knn = mean(predicted_labels == test_y.log)
+
+print(pred.rate.knn)
+```
+
+
+```{r}
+predicted_labels2 = knn(train_x.log, test_x.log, train_y.log, k = 5)
+
+pred.rate.knn2 = mean(predicted_labels2 == test_y.log)
+print(pred.rate.knn2)
+```
+
+```{r KNN without cri_wb}
+#KNN without cri_wb
+train_x.log3 = train_x.log %>% 
+  select( -starts_with("cri_wb.d")) #-starts_with() removes all cri_wb dummies 
+
+test_x.log3 = test_x.log %>% 
+  select( -starts_with("cri_wb.d"))
+
+predicted_labels3 = knn(train_x.log3, test_x.log3, train_y.log, k = 3)
+
+pred.rate.knn3 = mean(predicted_labels3 == test_y.log)
+print(pred.rate.knn3)
+```
+
+## Beyond Linearity: Splines
+
+```{r}
+library(splines)
+```
+
+
+```{r modelling basic spline without bids}
+#modelling basic spline without bids
+# Fit a regression model with cubic splines for multiple predictors
+spline_model <- lm(train_y ~ bs(nrc, degree = 3) + Edu + Ener + Multi, data = train_x)
+summary(spline_model)
+```
+
+```{r rmse and sse for basic spline}
+#rmse and sse for basic spline
+
+preds_spline = predict(spline_model, test_x)
+
+rmse_spline = sqrt(mean(preds_spline - test_y)^2)
+sse_spline = sum((preds_spline - test_y)^2)
+head(preds_spline)
+```
+
+```{r}
+head(test_y)
+sqrt(mean(preds_spline - test_y)^2)
+sum((preds_spline - test_y)^2)
+```
+
+```{r}
+summary(test_y)
+```
+
+```{r spline model with bids included}
+#spline model with bids included
+spline_model.bids <- lm(train_y ~ bs(nrc, degree = 3) + bs(ca_bids_all, degree = 3) + Edu + Ener + Multi, data = train_x)
+summary(spline_model.bids)
+```
+
+```{r spline rmse and sse including bids variable}
+#spline rmse and sse including bids variable
+preds_spline.bids = predict(spline_model.bids, test_x)
+
+rmse_spline.bids = sqrt(mean(preds_spline.bids - test_y)^2)
+sse_spline.bids = sum((preds_spline.bids - test_y)^2)
+
+print(sse_spline.bids)
+print(rmse_spline.bids)
+```
+
+
+```{r Plot nrc vs value}
+#Plot nrc vs value
+Procurement3 %>% 
+  ggplot(aes(x=nrc, y=lca_contract_value)) +
+  geom_point() +
+  geom_smooth()
+```
+
+```{r Plot ca_bids_all vs value 1}
+#Plot ca_bids_all vs value 1
+Procurement3 %>% 
+  ggplot(aes(x=ca_bids_all, y=lca_contract_value)) +
+  geom_point() +
+  geom_smooth()
+```
+
+```{r}
+sum(train_x$nrc > 10000)
+sum(train_x$ca_bids_all >= 50)
+293/145218
+23232/145218
+```
+
+```{r Plot ca_bids_all vs value 2}
+#Plot ca_bids_all vs value 2
+Procurement3 %>%
+  filter(!(ca_bids_all >= 50)) %>% 
+  ggplot(aes(x=ca_bids_all, y=lca_contract_value)) +
+  geom_point() +
+  geom_smooth()
+```
+
+
+
+```{r Plot for ca_bids_all}
+#Plot for ca_bids_all
+Procurement3 %>% 
+  filter(!(ca_bids_all >= 50)) %>%
+  ggplot(aes(x=ca_bids_all)) + 
+  geom_histogram(binwidth = 1)
+```
+
+```{r scaling ca_bids_all & Creating Procure_scaled}
+#scaling ca_bids_all & Creating Procure_scaled
+Procure_scaled = Procurement3 %>% 
+  filter(!(ca_bids_all >= 50)) %>%
+  mutate_at(vars(ca_bids_all), scale) %>% 
+  mutate_at(vars(ca_bids_all), as.numeric) #scale returns a matrix, so we need to save as.numeric
+```
+
+
+```{r Plot for nrc}
+#Plot for nrc
+Procurement3 %>% 
+  ggplot(aes(x=nrc)) + 
+  geom_density()
+```
+
+
+```{r scaling nrc}
+#scaling nrc
+Procure_scaled = Procure_scaled %>% 
+  mutate_at(vars(nrc), scale) %>% 
+  mutate_at(vars(nrc), as.numeric)
+```
+
+```{r Checking scale}
+#Checking scale
+head(Procure_scaled$nrc)
+head(Procure_scaled$ca_bids_all)
+summary(Procure_scaled$nrc)
+summary(Procure_scaled$ca_bids_all)
+```
+
+```{r}
+summary(Procure_scaled$lca_contract_value)
+Procure_scaled = Procure_scaled %>% 
+  filter(!is.na(lca_contract_value))
+```
+
+
+```{r assigning and sampling indices}
+#assigning and sampling indices
+index.spline = 1:nrow(Procure_scaled)
+
+set.seed(12345) #for random 
+train_index.spline = sample(index.spline, round(0.90*nrow(Procure_scaled)), replace = FALSE) #takes sample of 90% of rows without replacement
+
+test_index.spline = setdiff(index.spline, train_index.spline) #takes untaken rows
+```
+
+```{r creating train and test sets for spline}
+#creating train and test sets for spline
+train_x.sp = Procure_scaled[train_index.spline, ] %>% 
+  select(-lca_contract_value, -ca_contract_valuec) #Procure_scaled[train_index, ] expression to use only training subset %>% everything except price and price category
+
+train_y.sp = Procure_scaled[train_index.spline, ] %>% 
+  pull(lca_contract_value)
+
+test_x.sp = Procure_scaled[test_index.spline, ] %>% 
+  select(-lca_contract_value, -ca_contract_valuec)
+
+test_y.sp = Procure_scaled[test_index.spline, ] %>% 
+  pull(lca_contract_value)
+```
+
+```{r training spline regression model}
+#training spline regression model
+spline_model2 <- lm(train_y.sp ~ bs(nrc, degree = 3) + bs(ca_bids_all, degree = 3) + Edu + Ener + Multi, data = train_x.sp)
+#base spline with degree of polynomial 3. The resulting model will have a cubic polynomial function for each of the segments between the knots (which are quantiles by default).
+summary(spline_model2)
+```
+
+```{r predictions by spline}
+#predictions by spline
+preds_spline2 = predict(spline_model2, test_x.sp)
+
+rmse_spline2 = sqrt(mean(preds_spline2 - test_y.sp)^2)
+head(preds_spline2)
+```
+
+```{r rmse and sse for spline}
+#rmse and sse for spline
+sse_spline2 = sum((preds_spline2 - test_y.sp)^2)
+
+print(sse_spline2)
+print(rmse_spline2)
+```
+
+
+```{r degree 1 to compare with spline degree 2}
+#degree 1 to compare with spline degree 2
+spline_model.lr <- lm(train_y.sp ~ bs(nrc, degree = 1) + bs(ca_bids_all, degree = 1) + Edu + Ener + Multi, data = train_x.sp)
+summary(spline_model.lr)
+```
+
+```{r predictions of spline degree 1}
+#predictions of spline degree 1
+preds_spline.lr = predict(spline_model.lr, test_x.sp)
+
+rmse_spline.lr = sqrt(mean(preds_spline.lr - test_y.sp)^2)
+head(preds_spline.lr)
+```
+
+```{r rmse and sse for spline degree 1}
+#rmse and sse for spline degree 1
+sqrt(mean(preds_spline.lr - test_y.sp)^2)
+sum((preds_spline.lr - test_y.sp)^2)
+```
+
+
+```{r breif check of predictions and obs}
+#breif check of predictions and obs
+sum(is.na(preds_spline2))
+summary(preds_spline2)
+summary(test_y.sp)
+```
+
+```{r training spline using automatic knot selection gam}
+#training spline using automatic knot selection gam
+library(mgcv)
+
+# gam uses a built-in algorithm to choose optimal knots based on the data
+spline_model.gam <- gam(train_y.sp ~ bs(nrc, degree = 3) + bs(ca_bids_all, degree = 3) + Edu + Ener + Multi, data = train_x.sp)
+summary(spline_model.gam)
+```
+
+```{r rmse and sse for optimized-knots spline}
+#rmse and sse for optimized-knots spline
+preds_spline.gam = predict(spline_model.gam, test_x.sp)
+rmse_spline.gam = sqrt(mean(preds_spline.gam - test_y.sp)^2)
+sse_spline.gam = sum((preds_spline.gam - test_y.sp)^2)
+
+print(sse_spline.gam)
+print(rmse_spline.gam)
+```
+
+```{r spline gam without removing outliers}
+#spline gam without removing outliers
+spline_model.gam2 <- gam(train_y ~ bs(nrc, degree = 3) + bs(ca_bids_all, degree = 3) + Edu + Ener + Multi, data = train_x)
+summary(spline_model.gam2)
+```
+
+```{r}
+preds_spline.gam2 = predict(spline_model.gam2, test_x)
+rmse_spline.gam2 = sqrt(mean(preds_spline.gam2 - test_y)^2)
+sse_spline.gam2 = sum((preds_spline.gam2 - test_y)^2)
+
+print(sse_spline.gam2)
+print(rmse_spline.gam2)
+```
+
+
+```{r coefs of spline_model.gam}
+#coefs of spline_model.gam
+coef(spline_model.gam)
+```
+
+
+```{r Plot to compare with the previous one of nrc vs value}
+#Plot to compare with the previous one of nrc vs value
+Procurement3 %>% 
+  ggplot(aes(x=nrc, y=lca_contract_value)) +
+  geom_point() +
+  geom_smooth(method = "gam", formula = y ~ s(x), se = FALSE)
+```
+
+
+```{r compare with simple linear regression}
+#compare with simple linear regression
+lr_check = lm(train_y.sp ~ nrc + ca_bids_all + Edu + Ener + Multi, data = train_x.sp)
+summary(lr_check)
+```
+
+```{r rmse and sse for linear reg}
+#rmse and sse for linear reg
+preds_lrcheck = predict(lr_check, test_x.sp)
+
+rmse_lrcheck = sqrt(mean(preds_lrcheck - test_y.sp)^2)
+
+sqrt(mean(preds_lrcheck - test_y.sp)^2)
+sum((preds_lrcheck - test_y.sp)^2)
+```
+
+```{r gam spline with all vars}
+#gam spline with all vars
+spline_model.gam3 <- gam(train_y ~ bs(nrc, degree = 3) + bs(ca_bids_all, degree = 3) + AFR +EAP +ECA +LCR +MNA +SAR + ca_Consul.Service + ca_Goods + ca_proc_open + ca_proc_quality + ca_proc_source + ca_proc_restricted + corr_signp1 +corr_signp2 + corr_signp3 + taxhaven + not.taxhaven + P + Health + Edu + W + I + Tran + Fin + A + Ener + Info + H + Multi + Priv, data = train_x)
+
+summary(spline_model.gam3)
+```
+
+```{r rmse and sse for spline with all vars}
+#rmse and sse for spline with all vars
+preds_spline.gam3 = predict(spline_model.gam3, test_x)
+
+rmse_sp.gam3 = sqrt(mean(preds_spline.gam3 - test_y)^2)
+sse_sp.gam3  = sum((preds_spline.gam3 - test_y)^2)
+
+print(rmse_sp.gam3)
+print(sse_sp.gam3)
+```
+
+
+## Regression Tree
+
+```{r}
+sum(is.na(Procurement3)) #no missing values
+```
+
+
+```{r libraries for Trees}
+#libraries for Trees
+library(rpart)
+library(rpart.plot) #prettier plots for rpart
+library(tibble)
+```
+
+```{r checking the structure of the dataset}
+#checking the structure of the dataset
+str(Procurement3)
+```
+
+We need to recode dummies as factors for the decision tree.
+
+```{r changing dummies from numeric to factor}
+#changing dummies from numeric to factor
+cols_for_factor <- c("AFR", "EAP", "ECA", "LCR", "MNA", "SAR", "ca_Consul.Service", "ca_Goods", "ca_proc_open", "ca_proc_quality", "ca_proc_source", "ca_proc_restricted", "singleb", "corr_signp1", "corr_signp2", "corr_signp3", "taxhaven", "not.taxhaven", "P", "Health", "Edu", "W", "I", "Tran", "Fin", "A", "Ener", "Info", "H", "Multi", "Priv")
+
+Procurement5 <- Procurement3 %>%
+  select( -starts_with("cri_wb.d"), -ca_contract_valuec) %>% 
+  mutate_at(all_of(vars(cols_for_factor)), factor)
+
+#Procure_scaled2[cols_for_factor] = lapply(Procure_scaled[cols_for_factor], factor)
+#Warning: Using an external vector in selections was deprecated in tidyselect 1.1.0. Please use `all_of()` or `any_of()` instead.
+```
+
+```{r}
+str(Procurement5)
+```
+
+
+```{r assigning and sampling indices for tree model}
+#assigning and sampling indices for tree model
+index.t = 1:nrow(Procurement5)
+
+set.seed(12345) #for random 
+train_index.t = sample(index.t, round(0.90*nrow(Procurement4)), replace = FALSE) #takes sample of 90% of rows without replacement
+
+test_index.t = setdiff(index.t, train_index.t) #takes untaken rows
+```
+
+```{r creating train and test sets for tree model}
+#creating train and test sets for tree model
+train_x.t = Procurement5[train_index.t, ] %>% 
+  select(-lca_contract_value) #Procure_scaled[train_index, ] expression to use only training subset %>% everything except price and price category
+
+train_y.t = Procurement5[train_index.t, ] %>% 
+  pull(lca_contract_value)
+
+test_x.t = Procurement5[test_index.t, ] %>% 
+  select(-lca_contract_value)
+
+test_y.t = Procurement5[test_index.t, ] %>% 
+  pull(lca_contract_value)
+```
+
+```{r first regression tree model}
+#first regression tree model
+tree_model <- rpart(
+  formula = train_y.t ~ .,
+  data    = train_x.t,
+  method  = "anova"
+  )
+```
+
+```{r plot for the first tree}
+#plot for the first tree
+rpart.plot(tree_model, digits = 4)
+#digits = The number of significant digits in displayed numbers
+```
+
+```{r structure of the tree}
+#structure of the tree
+tree_model
+```
+
+
+```{r plot size of the tree}
+#plot size of the tree
+plotcp(tree_model)
+#To compare the error for each alpha value, rpart performs a 10-fold cross validation so that the error associated with a given alpa value is computed on the hold-out validation data.
+```
+
+```{r cptable for the first tree}
+#cptable for the first tree
+tree_model$cptable
+```
+
+
+```{r rmse of the first tree_model}
+#rmse of the first tree_model
+preds_tree = predict(tree_model, test_x.t)
+
+rmse_tree = sqrt(mean(preds_tree - test_y.t)^2)
+sse_tree = sum((preds_tree - test_y.t)^2)
+print(rmse_tree)
+print(sse_tree)
+```
+
+## Tuning Regression Tree
+
+```{r expand grid of the minsplit and maxdepth}
+#expand grid of the minsplit and maxdepth
+hyper_grid.t <- expand.grid(
+  minsplit = seq(5, 20, 1),
+  maxdepth = seq(8, 15, 1)
+)
+#create a hyper parameter grid
+#minsplit is the minimum number of data points required to attempt a split in the tree. Default=20
+#maxdepth is the maximum number of internal nodes between the root node and the terminal nodes (leafs). Default=30
+```
+
+WARNING: Takes a lot of time to run
+
+```{r loop function for training trees}
+#loop function for training trees
+
+start_time = Sys.time()
+
+tree_models = list() #creates a list that will contain tree models
+
+for (i in 1:nrow(hyper_grid.t)) {
+  
+  # gets minsplit, maxdepth values at row i in hyper_grid.t
+  minsplit = hyper_grid.t$minsplit[i]
+  maxdepth = hyper_grid.t$maxdepth[i]
+
+  # trains a model and stores in the tree_models list
+  # models[[i]] = rpart(...) assigns a trained decision tree model to i-th element.
+  tree_models[[i]] = rpart(
+    formula = train_y.t ~ .,
+    data    = train_x.t,
+    method  = "anova",
+    control = list(minsplit = minsplit, maxdepth = maxdepth)
+    )
+}
+
+print(Sys.time() - start_time)
+
+#took a lot of time to run
+```
+
+```{r Functions to get the parameters with lowest error}
+#Functions to get the parameters with lowest error
+# function to get optimal cp
+get_cp <- function(x) {
+  min    <- which.min(x$cptable[, "xerror"])
+  cp <- x$cptable[min, "CP"] 
+}
+
+# function to get minimum error
+get_min_error <- function(x) {
+  min    <- which.min(x$cptable[, "xerror"])
+  xerror <- x$cptable[min, "xerror"] 
+}
+
+hyper_grid.t %>%
+  mutate(
+    cp    = purrr::map_dbl(tree_models, get_cp),
+    error = purrr::map_dbl(tree_models, get_min_error)
+    ) %>%
+  arrange(error) %>%
+  top_n(-5, wt = error)
+
+#Mutates hyper_grid.t and adds columns with cp and errors and then returns top 5 rows with the lowest error value.
+#purrr::map_dbl() takes two arguments: the first argument is the vector or list that we want to apply the function to, and the second argument is the function that we want to apply. It applies the function to each element and returns a double (numeric).
+```
+
+```{r tuned regression tree}
+#tuned regression tree
+tuned_tree <- rpart(
+    formula = train_y.t ~ .,
+    data    = train_x.t,
+    method  = "anova",
+    control = list(minsplit = 8, maxdepth = 13, cp = 0.01)
+    )
+```
+
+```{r RMSE and SSE for the tuned tree}
+#RMSE and SSE for the tuned tree
+preds_tree2 = predict(tuned_tree, test_x.t)
+
+rmse_tunedtree = sqrt(mean(preds_tree2 - test_y.t)^2)
+sse_tunedtree = sum((preds_tree2 - test_y.t)^2)
+print(rmse_tunedtree)
+print(sse_tunedtree)
+```
+
+```{r plot for the tuned tree}
+#plot for the tuned tree
+rpart.plot(tuned_tree, digits = 4)
+```
+
+Absolutely no difference between the automatically optimized regression tree and the tuned one.
+
+## Bagging
+
+```{r library ipred and carte for bagging}
+#library ipred and carte for bagging
+library(ipred)
+library(caret)
+```
+
+
+
+```{r training first bagged model}
+#training first bagged model
+set.seed(123)
+
+# train bagged model
+bag_tree <- bagging(
+  formula = train_y.t ~ .,
+  data    = train_x.t,
+  coob    = TRUE,
+  importance = TRUE
+)
+
+#importance=TRUE computes and stores the variables' relative importance. 
+
+bag_tree
+```
+
+
+```{r plot for var importance}
+#plot for var importance
+varimp = varImp(bag_tree) #importance from caret package
+varimp = rownames_to_column(varimp, var = "variable")
+
+# create bar plot of variable importance measures
+varimp %>% 
+  filter(Overall!=0) %>% 
+  ggplot(aes(x = Overall, 
+             xend = 0, 
+             y = reorder(variable, Overall), 
+             yend=variable)) +
+  geom_segment() +
+  geom_point() +
+  labs(title = "Variable Importance Plot for Bagging Model", x = "Importance", y = "Variables")
+
+#geom_bar(stat = "identity", fill = "steelblue") +
+```
+
+```{r rmse and sse for default bagging (first bagtree)}
+#rmse and sse for default bagging (first bagtree)
+preds_tree3 = predict(bag_tree, test_x.t)
+
+rmse_bagtree = sqrt(mean(preds_tree3 - test_y.t)^2)
+sse_bagtree = sum((preds_tree3 - test_y.t)^2)
+print(rmse_bagtree)
+print(sse_bagtree)
+```
+
+WARNING: Takes time to run
+
+```{r loop for plotting ntree vs rmse}
+#loop for plotting ntree vs rmse
+
+start_time = Sys.time()
+
+# assess 10-50 bagged trees
+ntree <- 10:50
+
+# create empty vector to store OOB RMSE values
+RMSE <- vector(mode = "numeric", length = length(ntree))
+
+for (i in seq_along(ntree)) {
+  # reproducibility
+  set.seed(123)
+  
+  # training bagged models
+  bagged_models <- bagging(
+  formula = train_y.t ~ .,
+  data    = train_x.t,
+  coob    = TRUE,
+  nbagg   = ntree[i]
+)
+  # get OOB error
+  RMSE[i] <- bagged_models$err
+}
+
+print(Sys.time() - start_time)
+
+```
+
+```{r plot ntree vs RMSE}
+#plot ntree vs RMSE
+plot(ntree, RMSE, type = 'l', lwd = 2)
+abline(v = 11, col = "red", lty = "dashed")
+abline(v = 25, col = "blue", lty = "dashed") #25 is default number of bootstraps
+```
+
+We can see that the error drops and suddenly rises. After that the fall is slower. Given that 11 bootstraps give the lowest error before the default of 25, we can use it to reduce computation time. 
+
+```{r}
+min(RMSE) #the minimum eror is not significantly lower
+```
+
+```{r training new bagged model}
+#training new bagged model
+set.seed(123)
+
+# train bagged model with 11 trees
+bag_tree2 <- bagging(
+  formula = train_y.t ~ .,
+  data    = train_x.t,
+  coob    = TRUE,
+  nbagg   = 11
+)
+
+bag_tree2
+```
+
+```{r rmse and sse for optimal bagging}
+#rmse and sse for optimal bagging
+preds_tree4 = predict(bag_tree2, test_x.t)
+
+rmse_bagtree2 = sqrt(mean(preds_tree4 - test_y.t)^2)
+sse_bagtree2 = sum((preds_tree4 - test_y.t)^2)
+print(rmse_bagtree2)
+print(sse_bagtree2)
+```
+
+
+
+## Support Vector Machine
+
+```{r library e1071 for SVM}
+#library e1071 for SVM
+library(e1071)
+```
+
+```{r Plotting nrc vs bidders and looking at classes}
+#Plotting nrc vs bidders and looking at classes
+Procurement3 %>% 
+  filter(!(ca_bids_all >= 50)) %>% 
+  mutate(above200k = recode_factor(ca_contract_valuec,
+                                "200.000-"="Yes",
+                                .default = "No")) %>% 
+  ggplot(aes(x=ca_bids_all, 
+             y=nrc,
+             color=above200k)) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("#FF0000", "#000000")) +
+  labs(title = "Value", x = "bidders", y = "nrc") +
+  theme_minimal()
+```
+
+```{r}
+str(Procure_scaled)
+```
+
+We need scaled data, because the svm models take very long to run.
+
+```{r Procurement.svm}
+#Procurement.svm
+Procurement.svm = Procure_scaled %>% 
+  mutate(abv200k = factor(ifelse(ca_contract_valuec=="200.000-", 1, 0))) %>% 
+  select(abv200k, 
+         nrc, 
+         ca_bids_all, 
+         P) %>% 
+  mutate_at(vars(ca_bids_all, nrc), 
+            funs(as.numeric(.)))
+```
+
+
+```{r subsetting data for svm}
+#subsetting data for svm
+idx.svm = 1:nrow(Procurement.svm)
+
+set.seed(12345) #for random
+train_idx.svm = sample(idx.svm, round(0.50*nrow(Procurement.svm)), replace = FALSE) #takes sample of 50% of rows without replacement
+
+test_idx.svm = sample(setdiff(idx.svm, train_idx.svm), round(0.10*nrow(Procurement.svm))) #takes 10% from the remaining rows for test
+
+tune_idx.svm = sample(idx.svm, round(0.03*nrow(Procurement.svm)), replace = FALSE) #index of the obs that we will use for tuning. Only 3%, because it is very time-consuming.
+
+test_idx.svm2 = sample(setdiff(idx.svm, tune_idx.svm), round(0.10*nrow(Procurement.svm)))
+
+```
+
+```{r}
+head(Procurement.svm[train_idx.svm,])
+```
+
+
+```{r training first svm model}
+#training first svm model
+set.seed(123)
+# sample training data and fit model
+svm.m1 <- svm(abv200k~ ., data = Procurement.svm[train_idx.svm,], kernel = "radial")
+```
+
+```{r}
+preds_svm1 = predict(svm.m1, newdata = Procurement.svm[test_idx.svm,])
+```
+
+```{r}
+head(preds_svm1)
+```
+
+```{r pred.rate.svm}
+#pred.rate.svm
+pred.rate.svm = mean(preds_svm1 == Procurement.svm[test_idx.svm,]$abv200k)
+
+print(pred.rate.svm)
+```
+
+WARNING: The next chunk is very time-consuming.
+
+```{r tuning svm using tune function and ranges of pars}
+#tuning svm using tune function and ranges of pars
+
+start_time = Sys.time()
+
+set.seed(12345)
+svm.tune <- tune(svm, abv200k~., data = Procurement.svm[tune_idx.svm,], kernel = "radial",
+                 ranges = list(cost = c(0.1,1,10,100),
+                 gamma = c(0.25,0.5,1,2)))
+
+svm.tune$best.model
+
+#Takes forever to run, I used a small sample to find the best model to save time.
+
+print(Sys.time() - start_time)
+
+```
+
+```{r}
+preds_svm2 = predict(svm.tune$best.model, newdata = Procurement.svm[test_idx.svm2,])
+```
+
+```{r tuned pred.rate.svm2}
+#tuned pred.rate.svm2
+
+pred.rate.svm2 = mean(preds_svm2 == Procurement.svm[test_idx.svm2,]$abv200k)
+
+print(pred.rate.svm2)
+```
+
+## Comparing RMSE, SSE, & Prediction rate and Conclusion
+
+```{r creating Errdf}
+# creating Errdf
+
+rmse.var = c(rmse_r, new_rmse.r, rmse_spline.bids, rmse_sp.gam3, rmse_tunedtree, rmse_bagtree2)
+sse.var = c(sse_r, new_sse.r, sse_spline.bids, sse_sp.gam3, sse_tunedtree, sse_bagtree2)
+model.var = c("lm_ridge.c", "lm_ridge.c2", "spline_model.bids", "spline_model.gam3", "tuned_tree", "bag_tree2")
+
+Errdf = data.frame(model.var, rmse.var, sse.var)
+Errdf
+```
+
+```{r Plot RMSE}
+#Plot RMSE
+
+Errdf %>% 
+  group_by(rmse.var, sse.var) %>% 
+  ggplot(aes(x = rmse.var, 
+             xend = 0.013, 
+             y = reorder(model.var, desc(rmse.var)), 
+             yend=model.var,
+             label=round(rmse.var, 4))) +
+  geom_segment() +
+  geom_point() +
+  geom_text(nudge_x = 0, nudge_y = 0.1) +
+  labs(title = "RMSE by model", x = "RMSE", y = "Models")
+```
+
+```{r Plot SSE}
+#Plot SSE
+
+Errdf %>% 
+  ggplot(aes(x = sse.var, 
+             xend = 50000, 
+             y = reorder(model.var, desc(sse.var)), 
+             yend=model.var,
+             label=round(sse.var, 1))) +
+  geom_segment() +
+  geom_point() +
+  geom_text(nudge_x = 0, nudge_y = 0.1) +
+  labs(title = "SSE by model", x = "SSE", y = "Models")
+```
+
+```{r creating Errdf2}
+#creating Errdf2
+
+pred.rate = c(pred.rate.log, pred.rate.knn3, pred.rate.svm2)
+pred.model = c("log_model_train.2", "knn3", "svm.tune")
+
+Errdf2 = data.frame(pred.rate, pred.model)
+Errdf2
+```
+
+```{r Plot for classifications correctness rates}
+#Plot for classifications correctness rates
+
+Errdf2 %>% 
+  ggplot(aes(pred.model, pred.rate, label = round(pred.rate, 2))) +
+  geom_bar(stat = "identity", width = 0.5) +
+  geom_text(nudge_x = 0, nudge_y = 0.05) +
+  labs(title = "Prediction Rates", x = "Methods of Classification", y = "Correct Predictions") +
+  theme_minimal()
+```
+
+
+
+## Further discussion
+
+There is a variable for period between the time of award of the contract and the signing of the said contract. I excluded the variable for now, since there are many missing values and the effect on the value is unclear.
+
+```{r}
+summary(Procurement$ca_signper)
+test = Procurement
+test$ca_signper <- as.numeric(Procurement$ca_signper)
+summary(test$ca_signper)
+test = test %>% 
+  filter(!is.na(cri_wb))
+
+```
+
+```{r}
+4436/161465
+```
+
+
+```{r}
+test %>% 
+  filter(!(ca_signper <= -500)) %>%
+  ggplot(aes(x=ca_signper)) + 
+  geom_density()
+```
+
+```{r}
+test %>% 
+  filter(!is.na(ca_signper)) %>% 
+  filter(ca_signper <= -900) %>% 
+  count()
+```
+
+```{r}
+test %>% 
+  filter(!is.na(ca_signper)) %>% 
+  filter(ca_signper >= -900) %>%
+  ggplot(aes(x=ca_signper, y=lca_contract_value)) +
+  geom_point() +
+  geom_smooth()
+```
