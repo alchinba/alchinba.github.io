@@ -4,9 +4,30 @@ title: "Projects"
 
 ## Forecasting
 
-- Dengue
+- [Dengue Fever](Dengue_fc.qmd)
+
+Forecasting the total weekly cases of Dengue Fever using ARIMA and Neural Networks.
+
 - [Hydropower](ETS.qmd)
+
+Predicting Net Conventional Hydroelectric power generation, using popular forecasting techniques.
+
+- [Hydropower 2](NNETAR.qmd)
+
+Forecasting Net Conventional Hydroelectric power generation, using neural networks.
 
 ## Market Research
 
-- Cluster Analysis
+- [Cluster Analysis](cluster_ipl.qmd)
+
+Exploring the performance of IPL batsmen using analytical data tools.
+
+- [Boston Renters Sample](rents.qmd)
+
+The tables illustrate the proportion of cost-burdened and severely cost-burdened households by race, size, and income groups in Boston.
+
+## Machine Learning
+
+- [Procurement Contracts](ml_procurement.qmd)
+
+Used various Machine Learning techniques to predict Procurement Contracts value.
