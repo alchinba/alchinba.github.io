@@ -7,6 +7,9 @@ about:
   image-shape: round
   image-width: 12em
   links: 
+    - text: LinkedIn
+      icon: linkedin
+      href: https://www.linkedin.com/in/dimashalchinbay
     - text: Resume
       icon: file-text
       href: Dimash Resume.pdf
