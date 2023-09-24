@@ -1,22 +1,35 @@
 ---
-title: "ETS"
+title: "Forecasting Conventional Hydroelectric Power Generation in the US"
+execute: 
+    freeze: auto
+format: 
+  html: 
+    code-fold: show
+    code-tools: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Abstract
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+In the efforts of reaching net zero emissions, renewable energy sources get more and more important. One of the cheapest and most sustainable sources of electricity is conventional hydroelectric power generation.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Even though, the US has been using conventional hydropower since 1950s, the industry is far from reaching its full potential. With thousands of yet to be used dams and an increasing pressure to switch to the renewable energy, the demand and investments are going to rise significantly. Meanwhile, high seasonality and annual variation of the hydropower output can produce more accurate forecasting models. Here Seasonal Naïve, Regression, ETS, ARIMA, and ARIMA with external regressors are tested using RMSE and MPE to see which model better predicts unseen data. Using the net monthly conventional hydropower generation dataset, I identified ARIMA as the best one for the role.
+
+**Technical Note**:
+A megawatt is a unit for measuring instantaneous power equivalent to one million watts or thousand kilowatts. A megawatt hour (MWh) is equal to 1,000 kilowatt hours (kWh).  It is equal to 1,000 kilowatts of energy consumed or produced in one hour.  It is a bit more than the amount of electricity used by an average US residential utility customer in one month (886 kWh), according to the EIA.
+
 
 ```{r}
 library(fpp3)
 ```
 
-## Naive, SNaive, Drift, ETS for net energy generation
+## Data Preparation and Analysis
+
+I import the data on net energy generation of electricity from the conventional hydroelectric sources from the [EIA website](https://www.eia.gov/electricity/data/browser/#/topic/0?agg=2,0,1&fuel=05&geo=vvvvvvvvvvvvo&sec=g&linechart=elec.gen.hyc-us-99.m&columnchart=elec.gen.hyc-us-99.m&map=elec.gen.hyc-us-99.m&freq=m&ctype=linechart&ltype=pin&rtype=s&maptype=0&rse=0&pin=). The units are measured in thousand megawatt hours. The timeframe is from January 2001 through April 2023.
+
 
 ```{r}
 library(readr)
@@ -24,33 +37,43 @@ net_gen <- read_csv("Net_generation_United_States_all_sectors_monthly.csv",
     skip = 4)
 ```
 
-I import the data on net energy generation of electricity from the conventional hydroelectric sources.
+Here is a preview of the dataset:
 
 ```{r}
 head(net_gen)
 ```
 
+```{r}
+library(summarytools)
+```
+
+I am changing the name of the variable to MWH for brevity.
 
 ```{r rename var to MWH}
+# rename the variable to MWH
 net_gen = net_gen %>% 
   rename(MWH = "conventional hydroelectric thousand megawatthours")
 ```
+
+Here is a table of some descriptive statistics:
+
+```{r}
+descr(net_gen,
+      stats = c("mean", "sd","med", "min", "max"), 
+      transpose = TRUE)
+```
+
+I reorder the rows, so that the last observation (earliest date) is now the first one.
 
 ```{r reorder the rows}
 net_gen=net_gen[order(nrow(net_gen):1),]
 ```
 
-I reorder the rows, so that the last observation (earliest date) is now the first one.
-
 ```{r change to yearmonth and index}
+#changing to yearmonth format, naming Date, and indexing
 net_gen = net_gen %>% 
   mutate(Date = yearmonth(Month)) |>
   as_tsibble(index = Date)
-```
-
-```{r}
-which(net_gen$Month=="Jan 2018")
-which(net_gen$Month=="Jan 2022")
 ```
 
 ```{r plotting net_gen}
@@ -64,28 +87,21 @@ net_gen %>%
   theme_minimal()
 ```
 
+Here we can observe a general plot of the Hydropower time series. There seems to be no significant trend and high seasonality.
+
 ```{r seasonal plot}
 net_gen |>
-  gg_season(MWH, labels = "right")
+  gg_season(MWH, labels = "both")
 ```
+
+As we can see here, there are spikes in the same months across all years, indicating high seasonality.
 
 ```{r}
 net_gen |>
   gg_subseries(MWH)
 ```
 
-```{r}
-net_gen |>
-  model(stl = STL(MWH)) |>
-  components() |>
-  autoplot()
-```
-
-```{r}
-net_gen |>
-  ACF(MWH) |>
-  autoplot()
-```
+This plot, where the blue line is the average across the same months, shows that on average there is a spike in the late spring to early summer. The trough is in fall.
 
 ```{r}
 net_gen |>
@@ -95,50 +111,24 @@ net_gen |>
   theme(axis.text.x = element_text(size = 5))
 ```
 
-```{r net_gen2}
-net_gen2 = net_gen[(205:268),]
-```
+In this plot we can see the average and the trend by month across different years. This plot shows the same spikes and troughs, but we can also observe that the months with the highest values have a downward trend. This means that even though the energy output in those months is still the highest, it diminishes.
 
-I take only last five years of the data.
-
-```{r plot net_gen2}
-net_gen2 %>% 
-  autoplot(MWH) +
-  labs(title = "Net Conventional Hydroelectric Generation",
-       subtitle = "Jan 2018 - Apr 2023, Monthly",
-       y = "Thousand Megawatthours",
-       x = "Date",
-       caption = "Source: U.S. Energy Information Administration") +
-  theme_minimal()
-  #theme(title = element_text(size = 10))
-```
-
-```{r STL decomposition}
-net_gen2 |>
+```{r}
+net_gen |>
   model(stl = STL(MWH)) |>
   components() |>
   autoplot()
 ```
 
-I use STL model to decompose the time series. We can observe seasonality and a small negative trend.
+Here we see the STL decomposition components: trend, seasonality, and the remainder. There is high seasonality and some downward trend at the end of the series. The gray bars on the left show us that seasonality is very significant, whereas the general trend is less so.
 
-```{r split into train and test}
-net_gen.train = net_gen2[(1:48),]
-net_gen.test = net_gen2[(49:64),]
+```{r}
+net_gen |>
+  ACF(MWH) |>
+  autoplot()
 ```
 
-I split the last and the first four years into the testing and training sets respectively.
-
-```{r models estimation}
-net_gen.fit = net_gen.train |>
-  model(Naive = NAIVE(MWH),
-        Season_Naive = SNAIVE(MWH),
-        Drift = RW(MWH ~ drift()),
-        ETSopt = ETS(MWH),
-        ETS = ETS(MWH ~ error("A")
-                      + trend("Ad")
-                      + season("M")))
-```
+The plot of Autocorrelation Figure also indicates high seasonality, since the the values 12 months apart have the highest correlation.
 
 I estimate Naive, Seasonal Naive, Drift, and two ETS models. There are two ETS models because the optimal ETS() (the default one) seems to be underperforming, since it chooses no trend. I add ETS(A,Ad,M) since it seems to increase forecast accuracy. 
 
@@ -147,90 +137,10 @@ A mable: 1 x 5
   <model>      <model>       <model>      <model>       <model>
 1 <NAIVE>     <SNAIVE> <RW w/ drift> <ETS(M,N,A)> <ETS(A,Ad,M)>
 
-```{r}
-accuracy(net_gen.fit)
-```
-
-```{r forecasting}
-net_gen.fc = net_gen.fit |>
-  forecast(h = "16 months")
-```
-
-```{r}
-net_gen.fc |>
-  autoplot(net_gen.train, level = NULL) +
-  guides(colour = guide_legend(title = "Forecast")) +
-  labs(title = "Net Conventional Hydroelectric Generation Forecast",
-       subtitle = "Jan 2018 - Apr 2023, Monthly",
-       y = "Thousand Megawatthours",
-       x = "Date",
-       caption = "Source: U.S. Energy Information Administration") +
-  theme_minimal() +
-  theme(plot.caption = element_text(hjust = 6.5))
-```
-
-Here is the plot with the training data and the forecast of the unseen 16 months.
-
-```{r}
-net_gen.fc |>
-  autoplot(net_gen2, level = NULL) +
-  guides(colour = guide_legend(title = "Forecast")) +
-  labs(title = "Net Conventional Hydroelectric Generation Forecast",
-       subtitle = "Jan 2018 - Apr 2023, Monthly",
-       y = "Thousand Megawatthours",
-       x = "Date",
-       caption = "Source: U.S. Energy Information Administration") +
-  theme_minimal() +
-  theme(plot.caption = element_text(hjust = 6.5))
-```
-
-Here is the plot of the forecast and the actual data.
-
-```{r}
-net_gen.fc |>
-  autoplot(net_gen.test, level = NULL) +
-  guides(colour = guide_legend(title = "Forecast")) +
-  labs(title = "Net Conventional Hydroelectric Generation Forecast",
-       subtitle = "Jan 2022 - Apr 2023, Monthly",
-       y = "Thousand Megawatthours",
-       x = "Date",
-       caption = "Source: U.S. Energy Information Administration") +
-  theme_minimal() +
-  theme(plot.caption = element_text(hjust = 6.5))
-```
-
-Here is a closer look at the actual observations and the forecast. As we can see, visually, SNaive and ETS models fit better. I use accuracy() function to check which model fitted unseen data the best.
-
-```{r forecast accuracy}
-net_gen.fc %>% 
-  accuracy(net_gen2)
-```
-
-Using RMSE and MAE as metrics, we can observe that Seasonal Naive, surprisingly, has the best predictions, outperforming both ETS models. It is worth mentioning that the default ETS has the worst result.
-
-Perhaps, had I used the whole dataset, the ETS would have done a better job and see the negative trend, but given only five years, Seasonal Naive is the best choice.
-
-## Three models for the whole ts and enslemble model
-
-```{r additional columns}
-#net_gen %>% 
-#  mutate(year = year(Date), #lubridate::year to exract year
-#         month = month(Date), #to extract month
-#         index = 1:nrow(net_gen)) -> net_gen
-```
-
-```{r changing month numbers to names}
-#net_gen$month = month.name[(net_gen$month)]
-#month.name[] is not a function
-```
-
-```{r creating dummy vars with fastDummies}
-#library(fastDummies)
-#net_gen |> 
-#  dummy_cols(select_columns = "month") -> net_gen
-```
+## Creating Training and Testing sets.
 
 ```{r 80/20 split}
+#creating the var with the number of ~80% and ~20% of the observations and then splitting them accordingly.
 round(268*0.8)
 total_obs.net_gen = dim(net_gen)[1] #puts n of obs into total_obs
 train_obs = total_obs.net_gen * 0.8
@@ -239,44 +149,13 @@ net_gen.train2 = head(net_gen, train_obs)
 net_gen.test2 = tail(net_gen, test_obs)
 ```
 
-## Testing Regression
-
-```{rtesting reg}
-net_gen.train2 |>
-  model(TSLM(MWH ~ trend() + season())) |>
-  forecast() |>
-  autoplot(net_gen.train2)
-```
-
-## ARIMA and other models
+## ARIMA Estimation
 
 ```{r}
 net_gen |> gg_tsdisplay(MWH,
                      plot_type='partial', lag_max = 24)
 ```
 
-```{r}
-net_gen.train2 %>% 
-  autoplot(log(MWH))
-```
-
-```{r}
-lambda <- net_gen.train2 |>
-  features(MWH, features = guerrero) |>
-  pull(lambda_guerrero)
-net_gen.train2 |>
-  autoplot(box_cox(MWH, lambda)) +
-  labs(y = "",
-       title = "Transformed gas production with $\\lambda$ = ",
-         round(lambda,2))
-net_gen.train2 |>
-  autoplot()
-```
-
-```{r}
-net_gen.train.arima = net_gen.train2 %>% 
-  mutate(bcMWH = box_cox(MWH, lambda))
-```
 
 ```{r}
 net_gen |> gg_tsdisplay(difference(MWH, 12),
@@ -289,16 +168,21 @@ net_gen |> gg_tsdisplay(difference(MWH, 12) |> difference(),
 ```
 
 ```{r initial ARIMA estimation}
+#initial ARIMA estimation
 net_gen.train2 |>
   model(auto = ARIMA(MWH,
-                     stepwise = FALSE,
+                     stepwise = FALSE, #gives ARIMA more time to calculate
                      approx = FALSE)) -> arima.fit
 ```
+
+When estimating ARIMA models, it is important to check if the residuals look like white noise and have no patterns.
 
 ```{r ARIMA residuals}
 arima.fit |>
   gg_tsresiduals(lag_max=36)
 ```
+
+The graphic of the residuals shows that residuals look pretty random, but there is a spike in acf that is statistically significant (crossed the blue line). I have to perform Ljung-Box test.
 
 ```{r}
 arima.fit
@@ -310,44 +194,26 @@ A mable: 1 x 1
 1 <ARIMA(2,0,0)(2,1,1)[12]>
 
 ```{r}
+#Ljung-Box test
 augment(arima.fit) |>
   features(.innov, ljung_box, lag = 36, dof = 5)
+#dof=p+q+P+Q from ARIMA(p,d,q)(P,D,Q)
 ```
 
-```{r}
-net_gen.train.arima |>
-  model(auto = ARIMA(bcMWH,
-                     stepwise = FALSE,
-                     approx = FALSE)) -> arima.fit2
-```
+The p-value is very large, which is exactly what we need to proceed and not care about autocorrelation in the residuals.
 
-```{r}
-arima.fit2 |>
-  gg_tsresiduals(lag_max=36)
-```
-
-```{r}
-arima.fit2
-```
-
-A mable: 1 x 1
-                       auto
-                    <model>
-1 <ARIMA(1,0,0)(2,1,0)[12]>
-
-```{r}
-augment(arima.fit) |>
-  features(.innov, ljung_box, lag = 36, dof = 3)
-```
+## Seasonal Naive, TS Regression, and ETS
 
 ```{r Other models Estimation}
 net_gen.fit2 = net_gen.train2 |>
-  model(Season_Naive = SNAIVE(MWH),
+  model(
+        Season_Naive = SNAIVE(MWH),
         Regression = TSLM(MWH ~ trend() + season()),
-        ETSopt = ETS(MWH),
+        ETSopt = ETS(MWH), #automatic
         ETS = ETS(MWH ~ error("A")
                       + trend("Ad")
-                      + season("M")))
+                      + season("M"))  #industry standard
+        )
 ```
 
 ```{r}
@@ -369,17 +235,15 @@ accuracy(arima.fit) |>
   select(.model, RMSE, MAE)
 ```
 
-```{r}
-accuracy(arima.fit2) |>
-  select(.model, RMSE, MAE)
-```
+We can see how closely the corresponding models predict the data within the Training set.
+
+Now using these models I predict the next 54 months and compare the predictions to the withheld observations.
 
 ```{r forecast generation}
+#generating forecast
 net_gen.fc2 = net_gen.fit2 |>
   forecast(h = 54)
 net_gen.fc2.arima = arima.fit |>
-  forecast(h = 54)
-net_gen.fc2.arima2 = arima.fit2 |>
   forecast(h = 54)
 ```
 
@@ -406,13 +270,13 @@ net_gen.fc2 |>
        y = "Thousand Megawatthours",
        x = "Date",
        caption = "Source: U.S. Energy Information Administration") +
-  theme_minimal() +
-  theme(plot.caption = element_text(hjust = 5))
+  theme_minimal()
+  #theme(plot.caption = element_text(hjust = 5))
 ```
 
 ```{r}
 net_gen.fc2.arima |>
-  autoplot(net_gen.train2, level = NULL) +
+  autoplot(net_gen.train2) +
   guides(colour = guide_legend(title = "Forecast")) +
   labs(title = "Net Conventional Hydroelectric Generation
 ARIMA Forecast",
@@ -424,16 +288,187 @@ ARIMA Forecast",
 ```
 
 ```{r}
-net_gen.fc2.arima2 |>
-  autoplot(net_gen.train.arima, level = NULL) +
+net_gen.fc2.arima |>
+  #filter(.model = "") |>
+  autoplot(net_gen.test2) +
   guides(colour = guide_legend(title = "Forecast")) +
   labs(title = "Net Conventional Hydroelectric Generation
-ARIMA2 Forecast",
+ARIMA Forecast",
        subtitle = "Jan 2001 - Apr 2023, Monthly",
        y = "Thousand Megawatthours",
        x = "Date",
        caption = "Source: U.S. Energy Information Administration") +
   theme_minimal()
+  #theme(plot.caption = element_text(hjust = 5))
+```
+
+```{r}
+net_gen.fc2.arima |>
+  autoplot(net_gen.test2, level = NULL) +
+  guides(colour = guide_legend(title = "Forecast")) +
+  labs(title = "Net Conventional Hydroelectric Generation
+ARIMA Forecast",
+       subtitle = "Nov 2018 - Apr 2023, Monthly",
+       y = "Thousand Megawatthours",
+       x = "Date",
+       caption = "Source: U.S. Energy Information Administration") +
+  theme_minimal()
+```
+
+In these plots we can closely observe the ARIMA forecast is quite close, and even though some predicted observations are off, almost all actual values are within the 95% prediction interval.
+
+## ARIMA with external Regressors
+
+I import the meteorological data on droughts in the US. I used the [Monthly Historical Drought Data](https://www.drought.gov/data-maps-tools/historical-drought-data-conditions-tool), because I assume that the general amount of water affects the aggregate power generated in that month. According to the [National Integrated Drought Information System](https://www.drought.gov/historical-information?dataset=1&selectedDateUSDM=20101221&selectedDateSpi=19580601), "SPI captures how observed precipitation (rain, hail, snow) deviates from the climatological average over a given time period—in this case, over the 9 months leading up to the selected date."
+
+```{r}
+SPI <- read_csv("SPI.csv")
+```
+
+I prepare the meteorological dataset and combine it with the Hydropower one.
+
+```{r}
+#finding the start date
+which(SPI$DATE=="d_20010101")
+```
+
+```{r}
+#matching the timeframe with that of Hydropower dataset
+spi = SPI[1273:nrow(SPI), c(-1)]
+spi = spi[1:268,]
+```
+
+```{r}
+net_gen = net_gen %>% 
+  bind_cols(spi)
+```
+
+Here is a preview of the resulting data:
+
+```{r}
+head(net_gen)
+```
+
+I again split my data in two parts: training and testing sets.
+
+```{r Second Split}
+# Second Split of the data
+total_obs.net_gen = dim(net_gen)[1] #puts n of obs into total_obs
+train_obs = total_obs.net_gen * 0.8
+test_obs = total_obs.net_gen - train_obs
+net_gen.train2 = head(net_gen, train_obs)
+net_gen.test2 = tail(net_gen, test_obs)
+```
+
+Here we can see the percentage of the US territory that had experienced exceptional drought (D4).
+
+```{r}
+net_gen |> 
+  autoplot(D4)
+```
+
+I combine this plot with the hydropower time series, to see if there is any visual relationship.
+
+```{r}
+net_gen |>
+  pivot_longer(c(MWH, D4)) |>
+  ggplot(aes(x = Date, y = value)) +
+  geom_line() +
+  facet_grid(name ~ ., scales = "free_y") + ylab("")
+```
+
+It is hard to tell if there is any strong relationship between the two.
+
+```{r}
+net_gen |>
+  pivot_longer(c(MWH, W4)) |>
+  ggplot(aes(x = Date, y = value)) +
+  geom_line() +
+  facet_grid(name ~ ., scales = "free_y") + ylab("")
+```
+
+The same lack of obvious relationship can be said about the exceptionally wet %.
+
+I look at the correlation between these variables.
+
+```{r}
+library(GGally)
+```
+
+```{r}
+net_gen |>
+  GGally::ggpairs(columns = c("MWH","D4","W4"))
+```
+
+Again, no strong relationship, althought correlation with W4 is statistically significant.
+
+I include all the independent variables in the regression, as well as the seasonality variable.
+
+```{r}
+net_gen.fit3 = net_gen.train2 |>
+  model(ARIMA.reg = ARIMA(MWH ~ D0+D1+D2+D3+D4+W0+W1+W2+W3+W4+season()))
+```
+
+```{r}
+net_gen.fit3 |> gg_tsresiduals()
+```
+
+We can clearly see here that the residuals look random, which is good.
+
+I then create the future observations for the independent meteorological observations, by averaging the past values.
+
+```{r}
+net_gen_future <- new_data(net_gen.train2, 54) |>
+  mutate(D0 = mean(net_gen$D0),
+         D1 = mean(net_gen$D1),
+         D2 = mean(net_gen$D2),
+         D3 = mean(net_gen$D3),
+         D4 = mean(net_gen$D4),
+         W0 = mean(net_gen$W0),
+         W1 = mean(net_gen$W1),
+         W2 = mean(net_gen$W2),
+         W3 = mean(net_gen$W3),
+         W4 = mean(net_gen$W4))
+```
+
+```{r}
+#forecasting using the newly created observations
+net_gen.fc3 = net_gen.fit3 |>
+  forecast(new_data = net_gen_future)
+```
+
+```{r}
+net_gen.fc3 |>
+  autoplot(net_gen.train2) +
+  guides(colour = guide_legend(title = "Forecast")) +
+  labs(title = "Net Conventional Hydroelectric Generation Forecast
+ARIMA with Regressors Forecast",
+       subtitle = "Jan 2001 - Apr 2023, Monthly",
+       y = "Thousand Megawatthours",
+       x = "Date",
+       caption = "Source: U.S. Energy Information Administration") +
+  theme_minimal()
+```
+
+```{r}
+net_gen.fc3 |>
+  autoplot(net_gen.test2) +
+  guides(colour = guide_legend(title = "Forecast")) +
+  labs(title = "Net Conventional Hydroelectric Generation
+ARIMA with Regressors Forecast",
+       subtitle = "Nov 2018 - Apr 2023, Monthly",
+       y = "Thousand Megawatthours",
+       x = "Date",
+       caption = "Source: U.S. Energy Information Administration") +
+  theme_minimal()
+```
+
+## Accuracy Evaluation
+
+```{r}
+net_gen.fc3 |>
+  accuracy(net_gen) |>
+  select(.model, RMSE, ME, MPE)
 ```
 
 ```{r}
@@ -460,41 +495,32 @@ net_gen.fc2.arima |>
   as.data.frame() |>
   bind_rows(acc.metric) -> acc.metric
 
-acc.metric[1,1] = "ARIMA"
+net_gen.fc3 |>
+  accuracy(net_gen) |>
+  select(.model, RMSE, ME, MPE) |>
+  as.data.frame() |>
+  bind_rows(acc.metric) -> acc.metric
+
+acc.metric[2,1] = "ARIMA"
 ```
 
 ```{r RMSE plot}
 acc.metric %>% 
   group_by(.model, RMSE) %>% 
   ggplot(aes(x = RMSE, 
-             xend = 2500, 
+             xend = 2300, 
              y = reorder(.model, desc(RMSE)), 
              yend=.model,
              label=round(RMSE, 0))) +
   theme_minimal() +
   geom_segment() +
   geom_point() +
-  geom_text(nudge_x = -50, nudge_y = 0.2,
+  geom_text(nudge_x = -40, nudge_y = 0.2,
             size = 3) +
   theme(axis.ticks.y = element_blank(),
         axis.text.y = element_blank()) +
   labs(x = "RMSE", y = element_blank()) -> rmse.plot
-```
-
-```{r ME plot}
-acc.metric %>% 
-  group_by(.model, ME) %>% 
-  ggplot(aes(x = ME, 
-             xend = 0, 
-             y = reorder(.model, desc(abs(ME))), 
-             yend=.model,
-             label=round(ME, 2))) +
-  theme_minimal() +
-  geom_segment() +
-  geom_point() +
-  geom_text(nudge_x = 0, nudge_y = 0.2) +
-  #theme(axis.text.y=element_text(margin=margin(r=0))) +
-  labs(title = "Mean Error by Forecast Model", x = "ME", y = "Models")
+rmse.plot
 ```
 
 ```{r MPE plot}
@@ -508,9 +534,10 @@ acc.metric %>%
   theme_minimal() +
   geom_segment() +
   geom_point() +
-  geom_text(nudge_x = 2, nudge_y = 0.2,
+  geom_text(nudge_x = 0.5, nudge_y = 0.2,
             size = 3) +
   labs(y = "", x = "MPE") -> mpe.plot
+mpe.plot
 ```
 
 ```{r ggpubr for ggarrange}
@@ -523,206 +550,11 @@ ggarrange(mpe.plot, rmse.plot,
   annotate_figure(top = text_grob("Forecast Accuracy Metrics"))
 ```
 
-```{r}
-#net_gen.test2
-#net_gen.fc2.arima2 |>
-#  accuracy()
-```
+## Conclusion
 
 ```{r}
-net_gen.fc2.arima |>
-  autoplot(net_gen.test2, level = NULL) +
-  guides(colour = guide_legend(title = "Forecast")) +
-  labs(title = "Net Conventional Hydroelectric Generation
-ARIMA Forecast",
-       subtitle = "Nov 2018 - Apr 2023, Monthly",
-       y = "Thousand Megawatthours",
-       x = "Date",
-       caption = "Source: U.S. Energy Information Administration") +
-  theme_minimal()
+acc.metric |>
+  arrange(RMSE, MPE)
 ```
 
-```{r}
-net_gen.fc2.arima |>
-  autoplot(net_gen.test2) +
-  guides(colour = guide_legend(title = "Forecast")) +
-  labs(title = "Net Conventional Hydroelectric Generation
-ARIMA Forecast",
-       subtitle = "Nov 2018 - Apr 2023, Monthly",
-       y = "Thousand Megawatthours",
-       x = "Date",
-       caption = "Source: U.S. Energy Information Administration") +
-  theme_minimal()
-```
-
-```{r}
-net_gen.fc2 |>
-  filter(.model == "Regression") |>
-  autoplot(net_gen.test2, level = NULL) +
-  guides(colour = guide_legend(title = "Forecast")) +
-  labs(title = "Net Conventional Hydroelectric Generation
-Regression Forecast",
-       subtitle = "Nov 2018 - Apr 2023, Monthly",
-       y = "Thousand Megawatthours",
-       x = "Date",
-       caption = "Source: U.S. Energy Information Administration") +
-  theme_minimal()
-```
-
-## ARIMA with external Regressors
-
-```{r}
-SPI <- read_csv("SPI.csv")
-```
-
-```{r}
-which(SPI$DATE=="d_20010101")
-```
-
-```{r}
-spi = SPI[1273:nrow(SPI), c(-1)]
-spi = spi[1:268,]
-```
-
-```{r}
-net_gen = net_gen %>% 
-  bind_cols(spi)
-```
-
-```{r}
-head(net_gen)
-```
-
-```{r Second Split}
-total_obs.net_gen = dim(net_gen)[1] #puts n of obs into total_obs
-train_obs = total_obs.net_gen * 0.8
-test_obs = total_obs.net_gen - train_obs
-net_gen.train2 = head(net_gen, train_obs)
-net_gen.test2 = tail(net_gen, test_obs)
-```
-
-```{r}
-net_gen |> 
-  autoplot(D0)
-```
-
-```{r}
-net_gen |> 
-  autoplot(D4)
-net_gen |>
-  autoplot(MWH)
-```
-
-```{r}
-net_gen |>
-  pivot_longer(c(MWH, D4)) |>
-  ggplot(aes(x = Date, y = value)) +
-  geom_line() +
-  facet_grid(name ~ ., scales = "free_y") + ylab("")
-```
-
-```{r}
-library(GGally)
-```
-
-```{r}
-net_gen |>
-  GGally::ggpairs(columns = c("MWH","W3","W4"))
-```
-
-```{r}
-net_gen.fit3 = net_gen.train2 |>
-  model(ARIMA.reg = ARIMA(MWH ~ D0+D1+D2+D3+D4+W0+W1+W2+W3+W4+season()))
-```
-
-```{r}
-net_gen.fit3 |> gg_tsresiduals()
-```
-
-```{r}
-net_gen_future <- new_data(net_gen.train2, 54) |>
-  mutate(D0 = mean(net_gen$D0),
-         D1 = mean(net_gen$D1),
-         D2 = mean(net_gen$D2),
-         D3 = mean(net_gen$D3),
-         D4 = mean(net_gen$D4),
-         W0 = mean(net_gen$W0),
-         W1 = mean(net_gen$W1),
-         W2 = mean(net_gen$W2),
-         W3 = mean(net_gen$W3),
-         W4 = mean(net_gen$W4))
-```
-
-```{r}
-net_gen.fc3 = net_gen.fit3 |>
-  forecast(new_data = net_gen_future)
-```
-
-```{r}
-net_gen.fc3 |>
-  autoplot(net_gen.train2, level = NULL) +
-  guides(colour = guide_legend(title = "Forecast")) +
-  labs(title = "Net Conventional Hydroelectric Generation Forecast",
-       subtitle = "Jan 2001 - Apr 2023, Monthly",
-       y = "Thousand Megawatthours",
-       x = "Date",
-       caption = "Source: U.S. Energy Information Administration") +
-  theme_minimal()
-  #theme(plot.caption = element_text(hjust = 6.5))
-```
-
-```{r}
-net_gen.fc3 |>
-  autoplot(net_gen.test2, level = NULL) +
-  guides(colour = guide_legend(title = "Forecast")) +
-  labs(title = "Net Conventional Hydroelectric Generation
-ARIMA with Regressors Forecast",
-       subtitle = "Nov 2018 - Apr 2023, Monthly",
-       y = "Thousand Megawatthours",
-       x = "Date",
-       caption = "Source: U.S. Energy Information Administration") +
-  theme_minimal()
-```
-
-```{r}
-net_gen.fc3 |>
-  accuracy(net_gen) |>
-  select(.model, RMSE, ME, MPE)
-```
-
-
-```{r}
-net_gen.test2 |>
-  autoplot(MWH) +
-  autolayer(net_gen.fc3, level = NULL) +
-  autolayer(net_gen.fc2.arima, level = NULL) +
-  labs(title = "Net Conventional Hydroelectric Generation
-ARIMA with Regressors Forecast",
-       subtitle = "Nov 2018 - Apr 2023, Monthly",
-       y = "Thousand Megawatthours",
-       x = "Date",
-       caption = "Source: U.S. Energy Information Administration") +
-  theme_minimal()
-```
-
-```{r}
-  ggplot() + 
-  geom_line(data=net_gen.test2,
-            aes(x=Date, y=MWH),
-            color='black') +
-  geom_line(data=net_gen.fc3,
-            aes(x=Date, y=.mean, color = "blue"),
-            color='blue') + 
-  geom_line(data=net_gen.fc2.arima,
-            aes(x=Date, y=.mean, color = "red"),
-            color='red') +
-  labs(title = "Net Conventional Hydroelectric Generation
-ARIMA with Regressors Forecast",
-       subtitle = "Nov 2018 - Apr 2023, Monthly",
-       y = "Thousand Megawatthours",
-       x = "Date",
-       caption = "Source: U.S. Energy Information Administration") +
-  scale_color_manual(values = c("red", "blue"), labels = c("Data Frame 1", "Data Frame 2"))
-```
-
-
+As we can see from the evaluation metrics, the ARIMA with external regressors is the best performing model, in terms of both variance (RMSE) and bias (MPE).

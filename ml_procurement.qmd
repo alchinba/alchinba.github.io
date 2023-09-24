@@ -9,14 +9,14 @@ format:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
 ```
 
 I use ML techniques to predict and classify the value of the Procurement Contracts.
 
 ## Data
 
-```{r Preliminary Data, echo = TRUE}
+```{r Preliminary Data}
 Procurement <- read.csv("Procurement.csv", header=TRUE, sep=";")
 View(Procurement)
 ```
@@ -719,12 +719,16 @@ mean(predicted.classes2 == test_y.log)
 ## KNN 
 
 ```{r KNN classification}
+start_time = Sys.time()
+
 #KNN classification
 
 library(class)
 
 predicted_labels = knn(train_x.log, test_x.log, train_y.log, k = 3)
 #Here I used the subsets with cri_wb and other coefficients because the model doesn't care about collinearity and because without them there were too many ties.
+
+print(Sys.time() - start_time)
 ```
 
 ```{r Comparison between obs and predictions through KNN}
@@ -743,6 +747,8 @@ print(pred.rate.knn2)
 ```
 
 ```{r KNN without cri_wb}
+start_time = Sys.time()
+
 #KNN without cri_wb
 train_x.log3 = train_x.log %>% 
   select( -starts_with("cri_wb.d")) #-starts_with() removes all cri_wb dummies 
@@ -754,6 +760,8 @@ predicted_labels3 = knn(train_x.log3, test_x.log3, train_y.log, k = 3)
 
 pred.rate.knn3 = mean(predicted_labels3 == test_y.log)
 print(pred.rate.knn3)
+
+print(Sys.time() - start_time)
 ```
 
 ## Beyond Linearity: Splines
