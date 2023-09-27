@@ -1,7 +1,7 @@
 ---
 title: "Dinmukhamed (Dimash) Alchinbayev"
 image: linkedin_photo_screen.png
-resources: Dimash Resume.pdf
+resources: Dimash Alchinbayev Resume.pdf
 about: 
   template: solana
   image-shape: round
@@ -12,7 +12,7 @@ about:
       href: https://www.linkedin.com/in/dimashalchinbay
     - text: Resume
       icon: file-text
-      href: Dimash Resume.pdf
+      href: Dimash Alchinbayev Resume.pdf
     - text: Projects
       icon: graph-up-arrow
       href: projects.qmd
