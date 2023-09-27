@@ -1,0 +1,612 @@
+---
+title: "Code For When Do Economic Snactions Work?"
+execute: 
+    freeze: auto
+format: 
+  html: 
+    code-fold: show
+    code-tools: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r GSDB}
+library(readxl)
+GSDB <- read_excel("GSDB_V2.xls")
+View(GSDB)
+```
+
+## Data Manipulation
+
+```{r, echo=FALSE}
+summary(GSDB)
+```
+
+```{r Sans with single objectives}
+library(tidyverse)
+library(stringr)
+
+SansBinary = dplyr::filter(GSDB, grepl("success_total|failed|success_part", success)) #consists of sans with conclusion
+
+SansUnit = filter(SansBinary, str_count(SansBinary$objective, ",")==0) #single objective
+
+SansUnit <- SansUnit %>% 
+  mutate(SuccessBinary = ifelse(grepl("success_total", success), 2, ifelse(grepl("failed", success), 0, 1))) #gives numeric values to success outcomes
+
+#SansBinary <- SansBinary %>% 
+#  mutate(SuccessBinary = ifelse(!grepl("[^success_total]", success), 2, ifelse(!grepl("[^failed]", success), 0, 1)))
+```
+
+```{r}
+SansBinary2 = dplyr::filter(GSDB, grepl("success_total|failed", success))
+
+SansBinary2 = filter(SansBinary2, str_count(SansBinary2$objective, ",")==0)
+
+SansBinary2 <- SansBinary2 %>% 
+  mutate(SuccessBinary2 = ifelse(grepl("success_total", success), 1, 0))
+
+#only total success or total failure
+```
+
+```{r}
+#| output: false
+Freedom_Status_Data <- read_excel("Freedom Status Data.xlsx", 
+    sheet = "Country Ratings, Statuses ", 
+    skip = 1)
+```
+
+```{r}
+head(Freedom_Status_Data)
+```
+
+```{r Non-matching countries}
+unique(SansUnit$sanctioned_state)
+
+matched <- intersect(unique(SansUnit$sanctioned_state), Freedom_Status_Data$Countries)
+all <-  union(unique(SansUnit$sanctioned_state), Freedom_Status_Data$Countries)
+non.matched <- data.frame(all[!all %in% matched]); non.matched
+```
+
+```{r Trade Share}
+#Trade share data
+API_NE_TRD_GNFS <- read_excel("API_NE.TRD.GNFS.xlsx", col_types = c("text", "skip", "text", 
+         "skip", "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric", "numeric", "numeric", 
+         "numeric"), skip = 4)
+head(API_NE_TRD_GNFS)
+```
+
+```{r Non-matching names}
+#identifying non-matching country names
+matched2 <- intersect(unique(SansUnit$sanctioned_state), API_NE_TRD_GNFS$`Country Name`)
+all2 <-  union(unique(SansUnit$sanctioned_state), API_NE_TRD_GNFS$`Country Name`)
+non.matched2 <- data.frame(all2[!all %in% matched2]); non.matched2
+```
+
+```{r}
+SansOngoing <- GSDB %>% 
+  mutate(StatusOngoing = ifelse(success == "ongoing", 1, 0))
+
+summary(SansOngoing$StatusOngoing)
+```
+
+```{r}
+#creating a list of all sanctioned states that are needed in the dataset
+library(writexl)
+Sanctioned_States = data.frame(unique(SansUnit$sanctioned_state))
+write_xlsx(Sanctioned_States, "Sanctioned_States.xlsx")
+```
+
+```{r Duration}
+#creating duration
+SansUnit <- SansUnit %>% 
+  mutate(duration = end - begin) %>% 
+  mutate(duration = replace(duration, duration == 0, 1))
+```
+
+```{r}
+SansBinary2 <- SansBinary2 %>% 
+  mutate(duration = end - begin) %>% 
+  mutate(duration = replace(duration, duration == 0, 1))
+
+SansBinary2 <- SansBinary2 %>% 
+  mutate(comprehensive = ifelse(grepl("exp_compl, imp_compl", descr_trade), 1, 0))
+
+#library(stringr)
+SansBinary2 <- SansBinary2 %>% 
+  mutate(commitment = str_count(SansBinary2$sanctioning_state, ",")) %>% 
+  mutate(commitment = commitment + 1)
+```
+
+```{r Comprehensive}
+SansUnit <- SansUnit %>% 
+  mutate(comprehensive = ifelse(grepl("exp_compl, imp_compl", descr_trade), 1, 0))
+```
+
+```{r Commitment Variable}
+#commitment variable, counting the number of countries participating
+SansUnit <- SansUnit %>% 
+  mutate(commitment = str_count(SansUnit$sanctioning_state, ",")) %>% 
+  mutate(commitment = commitment + 1)
+```
+
+```{r most sanctioned}
+MostSanctioned = data.frame(sort(table(GSDB$sanctioned_state), decreasing = TRUE)[1:11])
+MostSanctioned
+```
+
+```{r}
+sort(table(SansUnit$commitment), decreasing = TRUE)
+```
+
+```{r Sanctioning parties}
+saning_part = sort(table(SansUnit$sanctioning_state), decreasing = TRUE); head(saning_part)
+```
+
+```{r}
+MostPopularObj = data.frame(sort(table(GSDB$objective), decreasing = TRUE)[1:5])
+MostPopularObj
+```
+
+```{r}
+SuccSansByYear = dplyr::filter(SansBinary2, SuccessBinary2 == 1)
+
+mean(SuccSansByYear$end)
+
+sort(table(SuccSansByYear$end), decreasing = TRUE)[1:10]
+```
+
+
+
+```{r Regime}
+Regime_data = select(Freedom_Status_Data, "Countries", starts_with("Regime"))
+```
+
+```{r}
+write_xlsx(Regime_data, "Regime_data.xlsx")
+```
+
+```{r}
+GSDB_Countries_Begin = select(GSDB, "sanctioned_state", "begin")
+```
+
+```{r}
+Sans_Countries_Begin = select(SansUnit, "sanctioned_state", "begin")
+
+write_xlsx(Sans_Countries_Begin, "Sans_Countries_Begin.xlsx")
+```
+
+```{r}
+T_Regime_data = t(Regime_data)
+class(T_Regime_data)
+T_Regime_data = as.data.frame(T_Regime_data)
+#transposing Regime_data
+```
+
+```{r}
+library(janitor)
+
+T_Regime_data = T_Regime_data %>%
+  row_to_names(row_number = 1)
+```
+
+```{r}
+#imported merged data from stata file. I merged data on trade share, regime, and sans. The Trade share for the year of sanctions is taken from 1 year ahead of the start of the sanctions.
+Merged_data <- read_excel("Copy of merged3.xlsx", 
+    col_types = c("text", "numeric", "text", 
+        "skip", "numeric", "skip", "numeric", 
+        "skip", "numeric"))
+View(Merged_data)
+```
+
+```{r Merging}
+#merging merged_data and the list of when sans started to check compatability
+Test_data = inner_join(Sans_Countries_Begin, Merged_data, by = c("sanctioned_state", "begin"))
+Test_data2 = dplyr::select(Test_data, "sanctioned_state", "begin", "Status", "Trade_%")
+```
+
+```{r Changing Letters to numbers}
+Test_data2 <- Test_data2 %>% 
+  mutate(regime = ifelse(Status == "F", 1, 0)) #Changing Letters to numbers: if Free 1, else 0
+```
+
+```{r Model_data}
+Model_data = inner_join(SansUnit, Merged_data, by = c("sanctioned_state", "begin"))
+Model_data <- Model_data %>% 
+  mutate(regime = ifelse(Status == "F", 1, 0))
+#merging SansUnit with merged data, creating numeric regime var and creating Model_data
+```
+
+```{r}
+sort(table(Model_data$success), decreasing = TRUE)
+```
+
+```{r non-matching cases}
+matched3 <- intersect(SansUnit$sanctioned_state, Model_data$sanctioned_state)
+all3 <-  union(SansUnit$sanctioned_state, Model_data$sanctioned_state)
+non.matched3 <- data.frame(all3[!all3 %in% matched3]); non.matched3
+```
+
+```{r}
+write_xlsx(SansUnit, "SansUnit.xlsx")
+```
+
+```{r multilateral}
+Model_data <- Model_data %>% 
+  mutate(multilateral = ifelse(grepl("EU|UN|League of Arab States|African Union|Commonwealth|EEC|ECOWAS|Organisation of African Unity|Organization of American States|EU, Croatia, Macedonia, Montenegro, Iceland, Albania, Bosnia and Herzegovina, Liechtenstein, Norway, Moldova, Armenia|G8|MERCOSUR|NATO|NAFTA|OAPEC|Organization of Eastern Carribean States|Pacific Islands Forum|Paris Agreement Signatories|SADC", sanctioning_state), 1, 0)) #creating multilateral where organizations participated in sanctioning
+```
+
+```{r Missing Values}
+sum(is.na(Model_data$`Trade_%`)) #counting missing values
+```
+
+```{r}
+missing_trade = dplyr::filter(Model_data, is.na(Model_data$`Trade_%`))
+```
+
+```{r Military}
+sum(Model_data$military)
+sum(Model_data$other)
+#counting the num of instances of objectives
+```
+
+```{r Objectives}
+unique(Model_data$objective) #unique objectives of sans
+```
+
+
+```{r GDP}
+library(readxl)
+GDPbyYear <- read_excel("GDPbyYear.xlsx", 
+    col_types = c("text", "numeric", "skip", 
+        "skip", "numeric"))
+View(GDPbyYear)
+```
+
+```{r}
+matched5 <- intersect(Model_data$sanctioned_state, GDPbyYear$`Country/Area`)
+all5 <-  union(Model_data$sanctioned_state, GDPbyYear$`Country/Area`)
+non.matched5 <- data.frame(all5[!all5 %in% matched5])
+#list of countries, names of which do not match. I manually changed them to comply with GSDB names
+```
+
+```{r}
+#GDP by year with new names
+GDPbyYear2 <- read_excel("GDPbyYear.xlsx", 
+    sheet = "Sheet1")
+View(GDPbyYear2)
+```
+
+```{r Model_data2 and MDLogitFull}
+Model_data2 = inner_join(Model_data[ , -which(names(Model_data) %in% c("Trade_%_act","...5", "regime"))], GDPbyYear2, by = c("sanctioned_state", "begin")) #including only matching rows in sanctioned_state and begin, excluding the three columns in c()
+
+Model_data2$GDP_san = Model_data2$GDP_san/1000000000
+#simplifying GDP by 1 billion
+
+Model_data2 = Model_data2 %>% 
+  mutate(Success = ifelse(success=="success_total", 1, 0))
+#if total success 1, esle 0
+
+Model_data2 <- Model_data2 %>% 
+  mutate(democracy = ifelse(objective == "democracy", 1, 0)) %>% 
+  mutate(human_rights = ifelse(objective == "human_rights", 1, 0)) %>% 
+  mutate(policy_change = ifelse(objective == "policy_change", 1, 0)) %>%
+  mutate(other_obj = ifelse(objective == "other", 1, 0)) %>%
+  mutate(prevent_war = ifelse(objective == "prevent_war", 1, 0)) %>%
+  mutate(end_war = ifelse(objective == "end_war", 1, 0)) %>%
+  mutate(destab_regime = ifelse(objective == "destab_regime", 1, 0)) %>%
+  mutate(terrorism = ifelse(objective == "terrorism", 1, 0)) %>%
+  mutate(territorial_conflict = ifelse(objective == "territorial_conflict", 1, 0)) %>% 
+  mutate(regime = C(as.factor(Status)))
+#creating new dummy vars based on objectives and making factor values for regime
+
+#Pay attention to Trade and territorialconfl
+MDLogitFull = Model_data2[ , -which(names(Model_data2) %in% c("case_id", "sanctioned_state", "sanctioning_state", "objective", "success", "success_ord","territorial_conflict", "Status", "SuccessBinary"))] # creating a dataset of independent vars
+```
+
+```{r comprehensive and duration for MDLogitFull}
+MDLogitFull = MDLogitFull %>% 
+  mutate(comprehensive = ifelse(grepl("exp_compl, imp_compl", descr_trade), 1, 0), 
+  duration = end - begin, 
+  duration = replace(duration, duration == 0, 1))
+#adding vars for comprehensive sans and duration of sans
+```
+
+```{r rearranging columns}
+MDLogitFull = dplyr::select(MDLogitFull, "Success","trade", "financial", "arms", "military", "travel", "other", "comprehensive", "multilateral", "democracy", "human_rights", "policy_change", "other_obj", "prevent_war", "end_war", "destab_regime", "terrorism", "Trade_%", "GDP_san", "duration", "regime") #rearranging columns and deleting extra columns
+```
+
+```{r MDLogitFull to xls}
+library(writexl)
+write_xlsx(MDLogitFull, "MDLogitFull.xlsx")
+```
+
+```{r MDLogitFull Stats}
+summary(MDLogitFull)
+summary(Model_data2$end)
+
+library(vtable)
+sumtable(MDLogitFull, out = "csv", file = "SumStats.csv")
+```
+
+```{r GDP stats}
+library(summarytools)
+descr(MDLogitFull$GDP_san,
+      stats = c("mean", "sd","med", "min", "max"), 
+      transpose = TRUE)
+```
+
+```{r}
+Model_data2 %>% 
+  dplyr::select(sanctioned_state, GDP_san) %>% 
+  arrange(desc(GDP_san))
+```
+
+```{r}
+Model_data2 %>% 
+  ggplot(aes(x="", y=GDP_san)) +
+  geom_boxplot() +
+    geom_jitter(color="black", size=0.4, alpha=0.9) +
+    geom_text(data = subset(Model_data2, sanctioned_state="United States"), aes(label = sanctioned_state)) +
+    ggtitle("Boxplot for GDP outliers")
+#GDP_san>14000
+```
+
+```{r}
+which(Model_data2$GDP_san>=14121)
+```
+
+```{r}
+(Model_data2[443,"GDP_san"] - mean(Model_data2$GDP_san)) / sd(Model_data2$GDP_san) #very high z-score
+```
+
+```{r}
+plot(density(Model_data2$GDP_san))
+```
+
+```{r}
+#descriptive stats without US
+Model_data2 %>% 
+  dplyr::select(sanctioned_state,GDP_san) %>% 
+  filter(`sanctioned_state` != "United States") %>% 
+  descr(stats = c("mean", "sd","med", "min", "max"), 
+      transpose = TRUE)
+```
+
+```{r}
+Model_data2 %>%
+  filter(sanctioned_state!="United States") %>% 
+  ggplot(aes(GDP_san)) +
+  geom_density()
+```
+
+```{r}
+MDLogitFull %>%
+  bind_cols(Model_data2$sanctioned_state) %>% 
+  filter(...22!="United States") %>% 
+  ggplot(aes(GDP_san)) +
+  geom_density()
+```
+
+```{r}
+sum(is.na(Model_data2$GDP_san))
+```
+
+```{r number of successes and polity}
+lapply(Model_data[, "Status"], table)
+lapply(Model_data[, "success"], table)
+```
+
+
+## OLD Logit models
+
+```{r Logit All Vars}
+LogitFull = glm(Success ~ ., family = binomial(link = "logit"), MDLogitFull)
+summary(LogitFull)
+```
+
+```{r}
+MDLogitLess = MDLogitFull %>% 
+  filter(!is.na(`Trade_%`))
+```
+
+```{r Logit1}
+Logit1 = glm(Success ~ other+duration+comprehensive+regime+GDP_san+end_war+democracy+other_obj, family = binomial(link = "logit"), MDLogitLess)
+summary(Logit1)
+```
+
+```{r}
+probabilities1 <- Logit1 %>% predict(type = "response")
+head(probabilities1)
+```
+
+```{r}
+predicted.classes1 <- ifelse(probabilities1 > 0.5, 1, 0)
+head(predicted.classes1)
+```
+
+```{r}
+mean(predicted.classes1 == MDLogitLess$Success)
+```
+
+```{r}
+forplot = bind_cols(MDLogitLess$GDP_san, probabilities1, MDLogitLess$regime)
+colnames(forplot) <- c("GDP_san", "Probability", "Regime")
+```
+
+## Summary Table
+
+```{r}
+library(jtools) #for summary tables
+library(huxtable) #needed for jtools
+```
+
+```{r}
+#| output: false
+export_summs(LogitFull, Logit1, to.file = "docx", file.name = "ModelEstimations.docx")
+```
+
+```{r}
+export_summs(LogitFull,
+             Logit1,
+             model.names = c("Model 1",
+                             "Model 2")) -> sum_table1
+sum_table1
+```
+
+```{r}
+probabilities.full <- LogitFull %>% predict(type = "response")
+head(probabilities.full)
+
+predicted.classes.full <- ifelse(probabilities.full > 0.5, 1, 0)
+head(predicted.classes.full)
+
+Model_data_test = na.omit(MDLogitFull) #omitting obs with NA Trade_%
+
+mean(predicted.classes.full == Model_data_test$Success)
+```
+
+```{r}
+pred_rate1 = tibble(
+  "Prediction Rate",
+  mean(predicted.classes.full == Model_data_test$Success),
+  mean(predicted.classes1 == MDLogitLess$Success)
+  )
+
+colnames(pred_rate1) <- c("names",
+                          "Model 1",
+                          "Model 2")
+
+pred_rate1
+```
+
+## Marginal Effects
+
+```{r Logit1 Marginal Effects}
+library(mfx)
+
+margins1 = logitmfx(Logit1, data=MDLogitLess, atmean = FALSE)
+
+margins1
+```
+
+```{r}
+library(margins) #R import of Stata margins command
+export_summs(margins1, margins(Logit1), model.names = c("Marginal Effects (mfx)",
+                                                        "Marginal Effects (margins)"))
+#comparing two packages values
+```
+
+```{r saving as doc}
+#| output: false
+export_summs(margins1,
+             margins(Logit1),
+             model.names = c("Marginal Effects (mfx)",
+                             "Marginal Effects (margins)"),
+             to.file = "docx",
+             file.name = "MarginalEffects.docx")
+#saving into Word
+```
+
+```{r Plot}
+library(sjPlot)
+library(ggplot2)
+theme_set(theme_sjplot())
+
+plot_model(Logit1, type = "pred", terms = c("duration[all]",
+                                            "regime",
+                                            "end_war",
+                                            "comprehensive"))
+plot_model(Logit1, type = "pred", terms = c("GDP_san [0.310:2000]",
+                                            "regime",
+                                            "end_war",
+                                            "comprehensive"))
+plot_scatter(forplot, GDP_san, Probability, colors = factor(forplot$Regime))
+```
+
+## New Logit
+
+```{r}
+MDLogitFull %>%
+  bind_cols(Model_data2$sanctioned_state) %>% 
+  filter(...22!="United States") %>% 
+  dplyr::select(-22) -> MDLogitFull2
+```
+
+```{r}
+LogitFull2 = glm(Success ~ ., family = binomial(link = "logit"), MDLogitFull2)
+summary(LogitFull2)
+```
+
+```{r}
+probabilities.full2 <- LogitFull2 %>% predict(type = "response")
+head(probabilities.full2)
+
+predicted.classes.full2 <- ifelse(probabilities.full2 > 0.5, 1, 0)
+head(predicted.classes.full2)
+
+Model_data_test2 = Model_data2 %>% 
+  filter(sanctioned_state!="United States",
+         !is.na(`Trade_%`))
+
+mean(predicted.classes.full2 == Model_data_test2$Success)
+```
+
+```{r}
+plot_model(LogitFull2,
+           type = "pred",
+           terms = c("duration[all]",
+                     "regime",
+                     "end_war",
+                     "comprehensive"),
+           facet.grid = list(scale = "free")
+)
+```
+
+```{r}
+MDLogitLess2 = MDLogitFull2 %>% 
+  filter(!is.na(`Trade_%`))
+```
+
+```{r}
+Logit2 = glm(Success ~ other+duration+comprehensive+regime+GDP_san+end_war+democracy+other_obj, family = binomial(link = "logit"), MDLogitLess2)
+summary(Logit2)
+```
+
+```{r}
+probabilities2 <- Logit2 %>% predict(type = "response")
+head(probabilities2)
+
+predicted.classes2 <- ifelse(probabilities2 > 0.5, 1, 0)
+head(predicted.classes2)
+
+mean(predicted.classes2 == MDLogitLess2$Success)
+```
+
+```{r}
+export_summs(LogitFull2,
+             Logit2,
+             model.names = c("Model 1",
+                             "Model 2")) -> sum_table2
+sum_table2
+```
