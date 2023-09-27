@@ -109,7 +109,7 @@
     "href": "index.html#independent-research",
     "title": "Dinmukhamed (Dimash) Alchinbayev",
     "section": "INDEPENDENT RESEARCH",
-    "text": "INDEPENDENT RESEARCH\nApplied Machine Learning Project\nTrained multiple ML models in R (Ridge Regression, Splines, KNN, Regression Trees, Trees Bagging, and Support Vector Machines) to predict the value of Procurement contracts based on their available descriptions and corruption indices. Result: KNN (categorical) and Bagged Tree (continuous) are the most optimal models to predict Procurement Contract values.\nEconomics Thesis on Effectiveness of Economic Sanctions\nPerformed literature review; statistical data analysis; combined multiple databases (GSDB, World Bank, and Freedom House), and used a logistic regression model to find what factors lead to the increase in the probability of the success of sanctions. Result: Sanctions are more likely to succeed if they aim narrowly, ban trade completely, and are aimed towards politically non-free countries. Link\nSenior Thesis on Political Economy of Corruption in Russia and the Effects of Sanctions on it\nPerformed extensive literature review of Russian sources, data analysis, and application of existing philosophical paradigms to answer multidisciplinary question of the nature of corruption in Russia."
+    "text": "INDEPENDENT RESEARCH\nApplied Machine Learning Project\nTrained multiple ML models in R (Ridge Regression, Splines, KNN, Regression Trees, Trees Bagging, and Support Vector Machines) to predict the value of Procurement contracts based on their available descriptions and corruption indices. Result: KNN (categorical) and Bagged Tree (continuous) are the most optimal models to predict Procurement Contract values. Link\nEconomics Thesis on Effectiveness of Economic Sanctions\nPerformed literature review; statistical data analysis; combined multiple databases (GSDB, World Bank, and Freedom House), and used a logistic regression model to find what factors lead to the increase in the probability of the success of sanctions. Result: Sanctions are more likely to succeed if they aim narrowly, ban trade completely, and are aimed towards politically non-free countries. Link\nSenior Thesis on Political Economy of Corruption in Russia and the Effects of Sanctions on it\nPerformed extensive literature review of Russian sources, data analysis, and application of existing philosophical paradigms to answer multidisciplinary question of the nature of corruption in Russia."
   },
   {
     "objectID": "about.html",
@@ -480,6 +480,6 @@
     "href": "projects.html#economic-research",
     "title": "Projects",
     "section": "Economic Research",
-    "text": "Economic Research\n\nEconometrics Analysis of Sanctions (Code)\n\nThe study used a logistic regression and marginal effect analysis to find what factors lead to the increase in the probability of the success of sanctions."
+    "text": "Economic Research\n\nEconometric Analysis of Sanctions (Code)\n\nThe study used a logistic regression and marginal effect analysis to find what factors lead to the increase in the probability of the success of sanctions."
   }
 ]
