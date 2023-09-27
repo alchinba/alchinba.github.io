@@ -26,6 +26,12 @@ Exploring the performance of IPL batsmen using analytical data tools.
 
 The tables illustrate the proportion of cost-burdened and severely cost-burdened households by race, size, and income groups in Boston.
 
+## Economic Research
+
+- [Econometric Analysis of Sanctions](Econ Thesis Alchinbayev 2.pdf) ([Code](sanctions.qmd))
+
+The study used a logistic regression and marginal effect analysis to find what factors lead to the increase in the probability of the success of sanctions.
+
 ## Machine Learning
 
 - [Procurement Contracts](ml_procurement.qmd)

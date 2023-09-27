@@ -87,11 +87,11 @@ International Experience and Export Analyst Intern
 
 **Applied Machine Learning Project**
 
-Trained multiple ML models in R (Ridge Regression, Splines, KNN, Regression Trees, Trees Bagging, and Support Vector Machines) to predict the value of Procurement contracts based on their available descriptions and corruption indices. Result: KNN (categorical) and Bagged Tree (continuous) are the most optimal models to predict Procurement Contract values.
+Trained multiple ML models in R (Ridge Regression, Splines, KNN, Regression Trees, Trees Bagging, and Support Vector Machines) to predict the value of Procurement contracts based on their available descriptions and corruption indices. Result: KNN (categorical) and Bagged Tree (continuous) are the most optimal models to predict Procurement Contract values. [Link](ml_procurement.qmd)
 
-**Economics Senior Thesis on Effectiveness of Economic Sanctions**
+**Economics Thesis on Effectiveness of Economic Sanctions**
 
-Performed literature review; statistical data analysis; combined multiple databases (GSDB, World Bank, and Freedom House), and used a logistic regression model to find what factors lead to the increase in the probability of the success of sanctions. Result: Sanctions are more likely to succeed if they aim narrowly, ban trade completely, and are aimed towards politically non-free countries.
+Performed literature review; statistical data analysis; combined multiple databases (GSDB, World Bank, and Freedom House), and used a logistic regression model to find what factors lead to the increase in the probability of the success of sanctions. Result: Sanctions are more likely to succeed if they aim narrowly, ban trade completely, and are aimed towards politically non-free countries. [Link](Econ Thesis Alchinbayev 2.pdf)
 
 **Senior Thesis on Political Economy of Corruption in Russia and the Effects of Sanctions on it**
 
