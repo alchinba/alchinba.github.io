@@ -480,6 +480,6 @@
     "href": "projects.html#economic-research",
     "title": "Projects",
     "section": "Economic Research",
-    "text": "Economic Research\n\nEconometric Analysis of Sanctions (Code)\n\nThe study used a logistic regression and marginal effect analysis to find what factors lead to the increase in the probability of the success of sanctions."
+    "text": "Economic Research\n\nStudy on Economic Sanctions (Code)\n\nThe study used a logistic regression and marginal effect analysis to find what factors lead to the increase in the probability of the success of sanctions.\n\nEconometric Analysis of Crime Rate (Stata Do-file)\n\nStudy of crime rate in North Carolina based on a regression analysis of population density and other predictors. The population density proved to have the most significant effect.\n\nEconometrics Analysis of Hourly Wages (Stata Do-file)\n\nStudy on hourly wages based on a log-linear regression of years of experience, education, gender, and other predictors. Education had a significant effect on earnings, as did gender.\n\nEconometrics Analysis of Inequality (Stata Do-file)\n\nStudy of an increase in economic inequality over time, using fixed-effects regressions."
   }
 ]

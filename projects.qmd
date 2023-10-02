@@ -28,9 +28,21 @@ The tables illustrate the proportion of cost-burdened and severely cost-burdened
 
 ## Economic Research
 
-- [Econometric Analysis of Sanctions](Econ Thesis Alchinbayev 2.pdf) ([Code](sanctions.qmd))
+- [Study on Economic Sanctions](Econ Thesis Alchinbayev 2.pdf) ([Code](sanctions.qmd))
 
 The study used a logistic regression and marginal effect analysis to find what factors lead to the increase in the probability of the success of sanctions.
+
+- [Econometric Analysis of Crime Rate](crime_rate_analysis.pdf) ([Stata Do-file](crime_rate.do))
+
+Study of crime rate in North Carolina based on a regression analysis of population density and other predictors. The population density proved to have the most significant effect.
+
+- [Econometrics Analysis of Hourly Wages](earnings_analysis.pdf) ([Stata Do-file](earnings.do))
+
+Study on hourly wages based on a log-linear regression of years of experience, education, gender, and other predictors. Education had a significant effect on earnings, as did gender.
+
+- [Econometrics Analysis of Inequality](Inequality_analysis.pdf) ([Stata Do-file](inequality.do))
+
+Study of an increase in economic inequality over time, using fixed-effects regressions.
 
 ## Machine Learning
 
