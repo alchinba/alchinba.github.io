@@ -81,7 +81,7 @@ International Experience and Export Analyst Intern
 
 ## SKILLS
 
-**Software**: R, Stata, Excel, PowerPoint, SQL, Python, Tableau, Git
+**Software**: R, Stata, Excel, PowerPoint, SQL, Python, Tableau, Git, LaTeX
 
 **Hard**: Machine Learning, Statistical data analysis, Data Manipulation; Data Visualization
 
