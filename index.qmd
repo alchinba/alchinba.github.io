@@ -18,7 +18,9 @@ about:
       href: projects.qmd
 ---
 
+Welcome!
 
+I am an economic research and public policy analyst with extensive experience in working with quantitative and qualitative data. Enjoy learning new skills and creative and efficient problem solving. Proven to be a responsible and detail-oriented person, as demonstrated by my academic and work experience.
 
 ## EDUCATION
 
@@ -26,19 +28,21 @@ about:
 
 M.S. Applied Economics; M.S. Applied Analytics \| Jan. 2023 -- May 2024
 
+GPA: 3.9
+
 **SUFFOLK UNIVERSITY**, College of Arts and Sciences \| Boston, MA
 
 B.A. in Economics; B.A. in Politics, Philosophy, and Econ (Honors) \| Sep.2018--May 2022
 
-GPA: 3.9
+GPA: 3.6; Honors Scholar
 
 ## RELATED COURSES
 
-Machine Learning Algorithms; Econometrics; Market Research and Data Analysis;
+Machine Learning Algorithms; Econometrics; Economic Forecasting; AI Software Tools; Market Research and Data Analysis; 
 
-Statistics and Probability; Linear Algebra; Multivariable Calculus;
+Statistics and Probability; Linear Algebra and Differential Equations; Multivariable Calculus;
 
-Public Finance; Forecasting; Politics and Data Analysis; Managerial Economics
+Financial Economics; Public Finance; Politics and Data Analysis; Managerial Economics; Intermediate Micro Theory; Intermediate Macro Theory; Measuring Business Cycles; Operations Research; Philosophy of Law; Political Economy
 
 ## WORK EXPERIENCE
 
@@ -47,7 +51,7 @@ Public Finance; Forecasting; Politics and Data Analysis; Managerial Economics
 Research Assistant
 
 - Worked with the team of economists to identify key hypotheses and metrics to identify the impact of digital finance on agricultural enterprises.
-- Composed exhaustive reports on the latest academic and business progress in digitalization of agricultural finance and its effects.
+- Composed literature reviews on the latest academic and business progress in digitalization of agricultural finance and its effects.
 - Worked with and cleaned the WDI and FINDEX survey datasets; visualized the statistics, using Stata and Excel.
 - Found relevant data from the official and secondary sources, such as central banks and business reports; cleaned and transformed the data, using Stata, R, and Excel for easier use and analysis.
 - Did OLS regression and statistical analyses on the individual characteristics associated with borrowing, among agricultural cultivators using Stata.
@@ -77,11 +81,11 @@ International Experience and Export Analyst Intern
 
 ## SKILLS
 
-**Software**: R, Stata, Excel, PowerPoint, SQL, Python, Tableau
+**Software**: R, Stata, Excel, PowerPoint, SQL, Python, Tableau, Git
 
-**Hard**: Regression, Logit, Splines, KNN, SVM, Regression Trees, Tuning, Clustering, Conjoint
+**Hard**: Machine Learning, Statistical data analysis, Data Manipulation; Data Visualization
 
-**Soft**: Analytical Thinking, Communication, Teamwork, Report Writing, Presenting
+**Soft**: Literature Review; Presenting; Communication; Teamwork; Problem Solving; Analytical Thinking; Fast Learning; Accuracy
 
 ## INDEPENDENT RESEARCH
 

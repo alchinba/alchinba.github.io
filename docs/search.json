@@ -74,35 +74,35 @@
     "href": "index.html",
     "title": "Dinmukhamed (Dimash) Alchinbayev",
     "section": "",
-    "text": "BOSTON COLLEGE, Woods College of Advancing Studies | Boston, MA.\nM.S. Applied Economics; M.S. Applied Analytics | Jan. 2023 – May 2024\nSUFFOLK UNIVERSITY, College of Arts and Sciences | Boston, MA\nB.A. in Economics; B.A. in Politics, Philosophy, and Econ (Honors) | Sep.2018–May 2022\nGPA: 3.9"
+    "text": "Welcome!\nI am an economic research and public policy analyst with extensive experience in working with quantitative and qualitative data. Enjoy learning new skills and creative and efficient problem solving. Proven to be a responsible and detail-oriented person, as demonstrated by my academic and work experience."
   },
   {
     "objectID": "index.html#education",
     "href": "index.html#education",
     "title": "Dinmukhamed (Dimash) Alchinbayev",
-    "section": "",
-    "text": "BOSTON COLLEGE, Woods College of Advancing Studies | Boston, MA.\nM.S. Applied Economics; M.S. Applied Analytics | Jan. 2023 – May 2024\nSUFFOLK UNIVERSITY, College of Arts and Sciences | Boston, MA\nB.A. in Economics; B.A. in Politics, Philosophy, and Econ (Honors) | Sep.2018–May 2022\nGPA: 3.9"
+    "section": "EDUCATION",
+    "text": "EDUCATION\nBOSTON COLLEGE, Woods College of Advancing Studies | Boston, MA.\nM.S. Applied Economics; M.S. Applied Analytics | Jan. 2023 – May 2024\nGPA: 3.9\nSUFFOLK UNIVERSITY, College of Arts and Sciences | Boston, MA\nB.A. in Economics; B.A. in Politics, Philosophy, and Econ (Honors) | Sep.2018–May 2022\nGPA: 3.6; Honors Scholar"
   },
   {
     "objectID": "index.html#related-courses",
     "href": "index.html#related-courses",
     "title": "Dinmukhamed (Dimash) Alchinbayev",
     "section": "RELATED COURSES",
-    "text": "RELATED COURSES\nMachine Learning Algorithms; Econometrics; Market Research and Data Analysis;\nStatistics and Probability; Linear Algebra; Multivariable Calculus;\nPublic Finance; Forecasting; Politics and Data Analysis; Managerial Economics"
+    "text": "RELATED COURSES\nMachine Learning Algorithms; Econometrics; Economic Forecasting; AI Software Tools; Market Research and Data Analysis;\nStatistics and Probability; Linear Algebra and Differential Equations; Multivariable Calculus;\nFinancial Economics; Public Finance; Politics and Data Analysis; Managerial Economics; Intermediate Micro Theory; Intermediate Macro Theory; Measuring Business Cycles; Operations Research; Philosophy of Law; Political Economy"
   },
   {
     "objectID": "index.html#work-experience",
     "href": "index.html#work-experience",
     "title": "Dinmukhamed (Dimash) Alchinbayev",
     "section": "WORK EXPERIENCE",
-    "text": "WORK EXPERIENCE\nAsian Development Bank | Remote | Sep. 2022–Jan. 2023\nResearch Assistant\n\nWorked with the team of economists to identify key hypotheses and metrics to identify the impact of digital finance on agricultural enterprises.\nComposed exhaustive reports on the latest academic and business progress in digitalization of agricultural finance and its effects.\nWorked with and cleaned the WDI and FINDEX survey datasets; visualized the statistics, using Stata and Excel.\nFound relevant data from the official and secondary sources, such as central banks and business reports; cleaned and transformed the data, using Stata, R, and Excel for easier use and analysis.\nDid OLS regression and statistical analyses on the individual characteristics associated with borrowing, among agricultural cultivators using Stata.\nDelivered outcomes within tight deadlines.\n\nBeacon Hill Institute | Boston, MA | Nov. 2021–Aug. 2022\nData Analyst and Research Assistant\n\nCollaborated with the team of researchers to identify the key metrics needed for the research of the effects of taxes on businesses and government spending in Massachusetts.\nComposed literature reviews on the effects of the earmarked tax revenue on the government spending.\nAnalyzed the flow of earmarked taxes revenue across different government agencies and funds.\nFound, cleaned, and organized data from the Federal and State sources, using R and Stata.\nDid regression analysis and visualized earmark tax revenue and relevant spending data using R and Stata.\nPresented the key findings to the Directors of the BHI and stakeholders.\n\nQazindustry, Center of Industry and Export | Astana, Kazakhstan | Jun. 2019–Aug. 2019\nInternational Experience and Export Analyst Intern\n\nTranslated technical information about government subsidies into non-technical presentations for the small and medium domestic exporters.\nConducted interviews with multiple business owners over phone and in person and advised them corresponding to their needs.\nHelped organizing the Conference for the largest non-oil exporters in Astana.\nFound and analyzed successful cases of the international analogs of the government support of the exporters. Communicated key findings of the analysis to the stakeholders.\nDesigned a blueprint of a virtual assistant program that improved clients’ interaction with the service."
+    "text": "WORK EXPERIENCE\nAsian Development Bank | Remote | Sep. 2022–Jan. 2023\nResearch Assistant\n\nWorked with the team of economists to identify key hypotheses and metrics to identify the impact of digital finance on agricultural enterprises.\nComposed literature reviews on the latest academic and business progress in digitalization of agricultural finance and its effects.\nWorked with and cleaned the WDI and FINDEX survey datasets; visualized the statistics, using Stata and Excel.\nFound relevant data from the official and secondary sources, such as central banks and business reports; cleaned and transformed the data, using Stata, R, and Excel for easier use and analysis.\nDid OLS regression and statistical analyses on the individual characteristics associated with borrowing, among agricultural cultivators using Stata.\nDelivered outcomes within tight deadlines.\n\nBeacon Hill Institute | Boston, MA | Nov. 2021–Aug. 2022\nData Analyst and Research Assistant\n\nCollaborated with the team of researchers to identify the key metrics needed for the research of the effects of taxes on businesses and government spending in Massachusetts.\nComposed literature reviews on the effects of the earmarked tax revenue on the government spending.\nAnalyzed the flow of earmarked taxes revenue across different government agencies and funds.\nFound, cleaned, and organized data from the Federal and State sources, using R and Stata.\nDid regression analysis and visualized earmark tax revenue and relevant spending data using R and Stata.\nPresented the key findings to the Directors of the BHI and stakeholders.\n\nQazindustry, Center of Industry and Export | Astana, Kazakhstan | Jun. 2019–Aug. 2019\nInternational Experience and Export Analyst Intern\n\nTranslated technical information about government subsidies into non-technical presentations for the small and medium domestic exporters.\nConducted interviews with multiple business owners over phone and in person and advised them corresponding to their needs.\nHelped organizing the Conference for the largest non-oil exporters in Astana.\nFound and analyzed successful cases of the international analogs of the government support of the exporters. Communicated key findings of the analysis to the stakeholders.\nDesigned a blueprint of a virtual assistant program that improved clients’ interaction with the service."
   },
   {
     "objectID": "index.html#skills",
     "href": "index.html#skills",
     "title": "Dinmukhamed (Dimash) Alchinbayev",
     "section": "SKILLS",
-    "text": "SKILLS\nSoftware: R, Stata, Excel, PowerPoint, SQL, Python, Tableau\nHard: Regression, Logit, Splines, KNN, SVM, Regression Trees, Tuning, Clustering, Conjoint\nSoft: Analytical Thinking, Communication, Teamwork, Report Writing, Presenting"
+    "text": "SKILLS\nSoftware: R, Stata, Excel, PowerPoint, SQL, Python, Tableau, Git\nHard: Machine Learning, Statistical data analysis, Data Manipulation; Data Visualization\nSoft: Literature Review; Presenting; Communication; Teamwork; Problem Solving; Analytical Thinking; Fast Learning; Accuracy"
   },
   {
     "objectID": "index.html#independent-research",
