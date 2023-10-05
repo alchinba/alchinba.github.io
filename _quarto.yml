@@ -4,6 +4,7 @@ project:
 
 website:
   title: "Dimash Alchinbayev"
+  google-analytics: "G-5WV6Y7EFV3"
   navbar:
     left:
       - href: index.qmd
